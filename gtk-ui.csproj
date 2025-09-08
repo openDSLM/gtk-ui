@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>gtk_ui</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GirCore.Gdk-4.0" Version="0.6.3" />
+    <PackageReference Include="GirCore.Gio-2.0" Version="0.6.3" />
+    <PackageReference Include="GirCore.GLib-2.0" Version="0.6.3" />
+    <PackageReference Include="GirCore.Gst-1.0" Version="0.6.3" />
+    <PackageReference Include="GirCore.GstVideo-1.0" Version="0.6.3" />
+    <PackageReference Include="GirCore.Gtk-4.0" Version="0.6.3" />
+  </ItemGroup>
+
+</Project>
