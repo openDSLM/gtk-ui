@@ -3,11 +3,13 @@
 //  - Auto AE/AGC toggle
 //  - DSLR-like shutter dropdown (1/8000 … 30s)
 //  - ISO dropdown (100 … 12800)
+//  - Zoom (1x..8x) and Pan (X/Y) for focus check (videocrop + videoscale)
 //  - "Capture DNG" button
 //  - Live HUD from libcamerasrc (t, g), plus ISO≈… only in MANUAL
 //  - Last capture HUD (via exiftool JSON if present, or libcamera-still --metadata)
 //
-// Preview uses NV12 at 1280x720.
+// Preview uses NV12 at 1280x720 on the *source side*.
+// On the final link to gtk4paintablesink we DO NOT force NV12; we allow RGB(A) negotiation.
 // Still capture is serialized by releasing the camera (pipeline -> NULL),
 // running rpicam-still/libcamera-still with optional --shutter/--gain,
 // saving into /ssd/RAW, parsing metadata if available, then resuming preview.
@@ -49,6 +51,8 @@ public static class Program
     private static Pipeline? _pipeline;
     private static Element?  _src;
     private static Element?  _sink;
+    private static Element?  _crop;     // videocrop (may be null if plugin missing)
+    private static Element?  _vscale;   // videoscale (may be null)
     private static Picture?  _picture;
 
     private static bool _autoAE = true;
@@ -56,12 +60,26 @@ public static class Program
     private static ComboBoxText? _shutBox;
     private static Label? _hud;
 
+    // Zoom UI
+    private static Scale? _zoomScale;
+    private static Scale? _panXScale;
+    private static Scale? _panYScale;
+
     private static uint _livePollId = 0;
 
     // Last-capture effective values
     private static long?   _lastExpUs;
     private static int?    _lastIso;
     private static double? _lastAG;
+
+    // Source size we request from libcamerasrc
+    private const int SRC_W = 1280;
+    private const int SRC_H = 720;
+
+    // Zoom/crop state in source pixel space
+    private static double _zoom = 1.0;       // 1..8
+    private static double _centerX = SRC_W / 2.0;
+    private static double _centerY = SRC_H / 2.0;
 
     private static readonly double[] ShutterSteps =
     {
@@ -109,6 +127,7 @@ public static class Program
         panel.Halign = Align.End; panel.Valign = Align.Start;
         panel.MarginTop = 12; panel.MarginEnd = 12;
 
+        // AE/AGC toggle
         var autoRow = Box.New(Orientation.Horizontal, 6);
         autoRow.Append(Label.New("Auto AE/AGC"));
         var autoChk = CheckButton.New();
@@ -123,6 +142,7 @@ public static class Program
         autoRow.Append(autoChk);
         panel.Append(autoRow);
 
+        // ISO
         panel.Append(Label.New("ISO"));
         _isoBox = ComboBoxText.New();
         foreach (var iso in IsoSteps) _isoBox.AppendText(iso.ToString());
@@ -131,6 +151,7 @@ public static class Program
         _isoBox.OnChanged += (_, __) => { if (!_autoAE) RebuildPreview(); };
         panel.Append(_isoBox);
 
+        // Shutter
         panel.Append(Label.New("Shutter"));
         _shutBox = ComboBoxText.New();
         foreach (var sec in ShutterSteps) _shutBox.AppendText(ShutterLabel(sec));
@@ -139,6 +160,41 @@ public static class Program
         _shutBox.OnChanged += (_, __) => { if (!_autoAE) RebuildPreview(); };
         panel.Append(_shutBox);
 
+        // Zoom & Pan
+        panel.Append(Label.New("Zoom"));
+        var zoomAdj = Adjustment.New(1.0, 1.0, 8.0, 0.1, 0.5, 0.0);
+        _zoomScale = Scale.New(Orientation.Horizontal, zoomAdj);
+        _zoomScale.Digits = 2;
+        ((Gtk.Range)_zoomScale).SetValue(1.0);
+        _zoomScale.OnValueChanged += (_, __) =>
+        {
+            var zv = ((Gtk.Range)_zoomScale!).GetValue();
+            _zoom = Math.Max(1.0, Math.Min(8.0, zv));
+            UpdatePanSensitivity();
+            UpdateCropRect();
+        };
+        panel.Append(_zoomScale);
+
+        panel.Append(Label.New("Pan X / Pan Y"));
+        var panXAdj = Adjustment.New(0.5, 0.0, 1.0, 0.01, 0.1, 0.0);
+        var panYAdj = Adjustment.New(0.5, 0.0, 1.0, 0.01, 0.1, 0.0);
+        _panXScale = Scale.New(Orientation.Horizontal, panXAdj);
+        _panYScale = Scale.New(Orientation.Horizontal, panYAdj);
+        _panXScale.Digits = 2; _panYScale.Digits = 2;
+        _panXScale.OnValueChanged += (_, __) =>
+        {
+            _centerX = SRC_W * ((Gtk.Range)_panXScale!).GetValue();
+            UpdateCropRect();
+        };
+        _panYScale.OnValueChanged += (_, __) =>
+        {
+            _centerY = SRC_H * ((Gtk.Range)_panYScale!).GetValue();
+            UpdateCropRect();
+        };
+        panel.Append(_panXScale);
+        panel.Append(_panYScale);
+
+        // Capture
         var btn = Button.NewWithLabel("● Capture DNG");
         btn.OnClicked += async (_, __) =>
         {
@@ -163,7 +219,7 @@ public static class Program
         {
             var css = CssProvider.New();
             string cssStr = @"
-overlay > box, label, button, checkbutton, combobox {
+overlay > box, label, button, checkbutton, combobox, scale {
   background-color: rgba(0,0,0,0.55);
   color: #fff;
   padding: 2px;
@@ -180,13 +236,13 @@ overlay > box, label, button, checkbutton, combobox {
     {
         if (_livePollId != 0) { GLib.Functions.SourceRemove(_livePollId); _livePollId = 0; }
         try { _pipeline?.SetState(State.Null); } catch { }
-        _pipeline = null; _src = null; _sink = null;
+        _pipeline = null; _src = null; _sink = null; _crop = null; _vscale = null;
 
         bool haveLibcamera = ElementFactory.Find("libcamerasrc") is not null;
         var (iso, us) = GetRequestedIsoAndShutter();
         double gain = Math.Max(1.0, iso / 100.0);
 
-        int fpsNum = 30, fpsDen = 1;
+        int fpsNum = 30;
         if (!_autoAE && us > 0)
         {
             double maxFps = Math.Max(1.0, Math.Floor(1_000_000.0 / us));
@@ -199,22 +255,37 @@ overlay > box, label, button, checkbutton, combobox {
 
         _src = ElementFactory.Make(haveLibcamera ? "libcamerasrc" : "v4l2src", "src")
                ?? throw new Exception("Failed to create source");
+
         var queue = ElementFactory.Make("queue", "q")
                    ?? throw new Exception("Failed to create queue");
         SetPropInt(queue, "max-size-buffers", 4);
         SetPropInt(queue, "leaky", 2);
-        var convert = ElementFactory.Make("videoconvert", "vc")
-                      ?? throw new Exception("Failed to create videoconvert");
+
+        var convert1 = ElementFactory.Make("videoconvert", "vc1")
+                        ?? throw new Exception("Failed to create videoconvert vc1");
+
+        // Try to create videocrop + videoscale (for zoom)
+        Element? crop = ElementFactory.Make("videocrop", "crop");
+        Element? vscale = ElementFactory.Make("videoscale", "vscale");
+        _crop = crop;
+        _vscale = vscale;
+
+        var convert2 = ElementFactory.Make("videoconvert", "vc2")
+                        ?? throw new Exception("Failed to create videoconvert vc2");
+
         _sink = ElementFactory.Make("gtk4paintablesink", "psink")
                 ?? throw new Exception("gtk4paintablesink not available (install gstreamer1.0-gtk4)");
 
-        _pipeline.Add(_src); _pipeline.Add(queue); _pipeline.Add(convert); _pipeline.Add(_sink);
+        _pipeline.Add(_src); _pipeline.Add(queue); _pipeline.Add(convert1);
+        if (crop is not null && vscale is not null)
+        {
+            _pipeline.Add(crop); _pipeline.Add(vscale);
+        }
+        _pipeline.Add(convert2); _pipeline.Add(_sink);
 
-        // Try to force manual via *_mode properties if present.
-        // (We don't check existence; SetProperty is wrapped in try/catch.)
+        // Force/manual controls on libcamerasrc
         if (haveLibcamera)
         {
-            // 0 = auto, 1 = manual (as in your Python)
             TrySetInt(_src, "exposure-time-mode", _autoAE ? 0 : 1);
             TrySetInt(_src, "analogue-gain-mode", _autoAE ? 0 : 1);
 
@@ -230,10 +301,30 @@ overlay > box, label, button, checkbutton, combobox {
             }
         }
 
-        var caps = Caps.FromString($"video/x-raw,format=NV12,width=1280,height=720,framerate={fpsNum}/{fpsDen}");
+        // Caps near the source: fix format/size/fps we want to work with (NV12 1280x720)
+        var capsSrc = Caps.FromString($"video/x-raw,format=NV12,width={SRC_W},height={SRC_H},framerate={fpsNum}/1");
         if (!_src.Link(queue)) throw new Exception("Link src->queue failed");
-        if (!queue.LinkFiltered(convert, caps)) throw new Exception("Link queue->convert (filtered caps) failed");
-        if (!convert.Link(_sink)) throw new Exception("Link convert->sink failed");
+        if (!queue.LinkFiltered(convert1, capsSrc)) throw new Exception("Link queue->vc1 (caps) failed");
+
+        // Zoom path if we have crop+scale
+        bool zoomPath = (crop != null && vscale != null);
+        if (zoomPath)
+        {
+            if (!convert1.Link(crop!)) throw new Exception("Link vc1->crop failed");
+            if (!crop!.Link(vscale!)) throw new Exception("Link crop->vscale failed");
+
+            // Keep a constant *size* after scaling, but do NOT force a color format here.
+            var capsSizeOnly = Caps.FromString($"video/x-raw,width={SRC_W},height={SRC_H},framerate={fpsNum}/1");
+            if (!vscale!.LinkFiltered(convert2, capsSizeOnly)) throw new Exception("Link vscale->vc2 (caps) failed");
+        }
+        else
+        {
+            // No zoom path: just go forward without forcing the final format
+            if (!convert1.Link(convert2)) throw new Exception("Link vc1->vc2 failed");
+        }
+
+        // Final link into gtk4paintablesink: no caps filter (let vc2 pick RGB(A) for the sink)
+        if (!convert2.Link(_sink)) throw new Exception("Link vc2->sink failed");
 
         RebindPaintable();
 
@@ -242,11 +333,16 @@ overlay > box, label, button, checkbutton, combobox {
 
         GLib.Functions.IdleAdd(0, () => { RebindPaintable(); return false; });
 
-        // Re-apply manual controls shortly after PLAYING (IPAs sometimes override once at start)
+        // Re-apply manual after PLAYING + init zoom
         GLib.Functions.TimeoutAdd(0, 150, () =>
         {
             ApplyManualControlsIfNeeded();
-            return false; // one-shot
+            _zoom = _zoomScale is null ? 1.0 : ((Gtk.Range)_zoomScale).GetValue();
+            _centerX = SRC_W * (_panXScale is null ? 0.5 : ((Gtk.Range)_panXScale).GetValue());
+            _centerY = SRC_H * (_panYScale is null ? 0.5 : ((Gtk.Range)_panYScale).GetValue());
+            UpdatePanSensitivity();
+            UpdateCropRect();
+            return false;
         });
 
         _livePollId = GLib.Functions.TimeoutAdd(0, 200, () =>
@@ -256,14 +352,44 @@ overlay > box, label, button, checkbutton, combobox {
         });
     }
 
+    private static void UpdatePanSensitivity()
+    {
+        bool enablePan = _zoom > 1.0001 && _crop != null && _vscale != null;
+        if (_panXScale != null) _panXScale.Sensitive = enablePan;
+        if (_panYScale != null) _panYScale.Sensitive = enablePan;
+    }
+
+    private static void UpdateCropRect()
+    {
+        if (_crop == null) return;
+
+        double z = Math.Max(1.0, _zoom);
+        int cropW = Math.Max(16, (int)Math.Round(SRC_W / z));
+        int cropH = Math.Max(16, (int)Math.Round(SRC_H / z));
+
+        // clamp center so crop stays inside frame
+        double halfW = cropW / 2.0, halfH = cropH / 2.0;
+        _centerX = Math.Max(halfW, Math.Min(SRC_W - halfW, _centerX));
+        _centerY = Math.Max(halfH, Math.Min(SRC_H - halfH, _centerY));
+
+        int left   = (int)Math.Round(_centerX - halfW);
+        int top    = (int)Math.Round(_centerY - halfH);
+        left   = Math.Max(0, Math.Min(SRC_W - cropW, left));
+        top    = Math.Max(0, Math.Min(SRC_H - cropH, top));
+        int right  = SRC_W - (left + cropW);
+        int bottom = SRC_H - (top + cropH);
+
+        SetPropInt(_crop, "left", left);
+        SetPropInt(_crop, "right", right);
+        SetPropInt(_crop, "top", top);
+        SetPropInt(_crop, "bottom", bottom);
+    }
+
     private static void ApplyManualControlsIfNeeded()
     {
-        if (_src == null) return;
-        if (_autoAE) return;
-
+        if (_src == null || _autoAE) return;
         var (iso, us) = GetRequestedIsoAndShutter();
         double gain = Math.Max(1.0, iso / 100.0);
-
         TrySetInt(_src, "exposure-time-mode", 1);
         TrySetInt(_src, "analogue-gain-mode", 1);
         SetPropInt(_src, "exposure-time", us);
@@ -287,11 +413,9 @@ overlay > box, label, button, checkbutton, combobox {
     private static void UpdateLiveHudFromSrc()
     {
         if (_hud == null) return;
-
         string live = "Live: —";
         long? expUs = null;
         double? ag = null;
-
         if (_src != null)
         {
             if (TryGetInt(_src,  "exposure-time", out int  l))  expUs = (long)l;
@@ -320,7 +444,6 @@ overlay > box, label, button, checkbutton, combobox {
     private static async SysTask CaptureDngSerializedAsync()
     {
         if (_pipeline == null) return;
-
         _pipeline.SetState(State.Null);
         await SysTask.Delay(300);
 
@@ -399,7 +522,7 @@ overlay > box, label, button, checkbutton, combobox {
         }
     }
 
-    // --- Metadata parsing (last capture) ---
+    // --- Metadata parsing ---
     private static void ParseLibcameraJson(string path)
     {
         try
