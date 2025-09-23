@@ -460,7 +460,7 @@ overlay > box, label, button, checkbutton, combobox, scale {
 
             var (iso, us) = GetRequestedIsoAndShutter();
             double gain = Math.Max(1.0, iso / 100.0);
-            string manualArgs = _autoAE ? "" : $" --shutter {us} --gain {gain:0.###}";
+            string manualArgs = _autoAE ? "" : $" --shutter {us} --gain {gain:0.###} ";
 
             int exitCode = -1;
             string? dngPathFinal = null;
@@ -473,7 +473,7 @@ overlay > box, label, button, checkbutton, combobox, scale {
                 {
                     string baseName = Path.Combine(outDir, $"RPICAM_{ts}");
                     string dngPath  = baseName + ".dng";
-                    string cmd = $"rpicam-still -n --immediate -t 1 -o \"{dngPath}\"{manualArgs}";
+                    string cmd = $"rpicam-still -n --immediate -t 1 --raw -o \"{dngPath}\"{manualArgs} --width 1920 --height 1080";
                     exitCode = await RunShellAsync(cmd);
                     if (exitCode == 0 && File.Exists(dngPath)) { dngPathFinal = dngPath; break; }
                 }
