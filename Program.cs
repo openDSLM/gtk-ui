@@ -58,6 +58,7 @@ public static class Program
     private static bool _autoAE = true;
     private static ComboBoxText? _isoBox;
     private static ComboBoxText? _shutBox;
+    private static ComboBoxText? _resBox;
     private static Label? _hud;
 
     // Zoom UI
@@ -88,6 +89,11 @@ public static class Program
         2, 4, 8, 15, 30
     };
     private static readonly int[] IsoSteps = { 100, 200, 400, 800, 1600, 3200, 6400, 12800 };
+    private static readonly (string Label, int Width, int Height)[] ResolutionOptions =
+    {
+        ("1928 x 1090 (2K crop)", 1928, 1090),
+        ("3856 x 2180 (4K full)", 3856, 2180)
+    };
 
     public static int Main(string[] args)
     {
@@ -121,17 +127,23 @@ public static class Program
         _hud.Halign = Align.Start;
         _hud.Valign = Align.Start;
         _hud.MarginTop = 8; _hud.MarginStart = 8;
+        _hud.AddCssClass("hud-readout");
         overlay.AddOverlay(_hud);
 
         var panel = Box.New(Orientation.Vertical, 8);
         panel.Halign = Align.End; panel.Valign = Align.Start;
         panel.MarginTop = 12; panel.MarginEnd = 12;
+        panel.AddCssClass("control-panel");
 
         // AE/AGC toggle
         var autoRow = Box.New(Orientation.Horizontal, 6);
-        autoRow.Append(Label.New("Auto AE/AGC"));
+        autoRow.AddCssClass("control-row");
+        var autoLabel = Label.New("Auto AE/AGC");
+        autoLabel.AddCssClass("control-inline-label");
+        autoRow.Append(autoLabel);
         var autoChk = CheckButton.New();
         autoChk.Active = _autoAE;
+        autoChk.AddCssClass("control-toggle");
         autoChk.OnToggled += (_, __) =>
         {
             _autoAE = autoChk.Active;
@@ -142,29 +154,48 @@ public static class Program
         autoRow.Append(autoChk);
         panel.Append(autoRow);
 
+        // Resolution
+        var resLabel = Label.New("Still Resolution");
+        resLabel.AddCssClass("control-section-label");
+        panel.Append(resLabel);
+        _resBox = ComboBoxText.New();
+        foreach (var opt in ResolutionOptions) _resBox.AppendText(opt.Label);
+        _resBox.Active = 0;
+        _resBox.AddCssClass("control-input");
+        panel.Append(_resBox);
+
         // ISO
-        panel.Append(Label.New("ISO"));
+        var isoLabel = Label.New("ISO");
+        isoLabel.AddCssClass("control-section-label");
+        panel.Append(isoLabel);
         _isoBox = ComboBoxText.New();
         foreach (var iso in IsoSteps) _isoBox.AppendText(iso.ToString());
         _isoBox.Active = System.Array.IndexOf(IsoSteps, 400);
         _isoBox.Sensitive = !_autoAE;
+        _isoBox.AddCssClass("control-input");
         _isoBox.OnChanged += (_, __) => { if (!_autoAE) RebuildPreview(); };
         panel.Append(_isoBox);
 
         // Shutter
-        panel.Append(Label.New("Shutter"));
+        var shutLabel = Label.New("Shutter");
+        shutLabel.AddCssClass("control-section-label");
+        panel.Append(shutLabel);
         _shutBox = ComboBoxText.New();
         foreach (var sec in ShutterSteps) _shutBox.AppendText(ShutterLabel(sec));
         _shutBox.Active = System.Array.IndexOf(ShutterSteps, 1.0/60);
         _shutBox.Sensitive = !_autoAE;
+        _shutBox.AddCssClass("control-input");
         _shutBox.OnChanged += (_, __) => { if (!_autoAE) RebuildPreview(); };
         panel.Append(_shutBox);
 
         // Zoom & Pan
-        panel.Append(Label.New("Zoom"));
+        var zoomLabel = Label.New("Zoom");
+        zoomLabel.AddCssClass("control-section-label");
+        panel.Append(zoomLabel);
         var zoomAdj = Adjustment.New(1.0, 1.0, 8.0, 0.1, 0.5, 0.0);
         _zoomScale = Scale.New(Orientation.Horizontal, zoomAdj);
         _zoomScale.Digits = 2;
+        _zoomScale.AddCssClass("control-input");
         ((Gtk.Range)_zoomScale).SetValue(1.0);
         _zoomScale.OnValueChanged += (_, __) =>
         {
@@ -175,12 +206,16 @@ public static class Program
         };
         panel.Append(_zoomScale);
 
-        panel.Append(Label.New("Pan X / Pan Y"));
+        var panLabel = Label.New("Pan X / Pan Y");
+        panLabel.AddCssClass("control-section-label");
+        panel.Append(panLabel);
         var panXAdj = Adjustment.New(0.5, 0.0, 1.0, 0.01, 0.1, 0.0);
         var panYAdj = Adjustment.New(0.5, 0.0, 1.0, 0.01, 0.1, 0.0);
         _panXScale = Scale.New(Orientation.Horizontal, panXAdj);
         _panYScale = Scale.New(Orientation.Horizontal, panYAdj);
         _panXScale.Digits = 2; _panYScale.Digits = 2;
+        _panXScale.AddCssClass("control-input");
+        _panYScale.AddCssClass("control-input");
         _panXScale.OnValueChanged += (_, __) =>
         {
             _centerX = SRC_W * ((Gtk.Range)_panXScale!).GetValue();
@@ -196,6 +231,7 @@ public static class Program
 
         // Capture
         var btn = Button.NewWithLabel("● Capture DNG");
+        btn.AddCssClass("control-button");
         btn.OnClicked += async (_, __) =>
         {
             btn.Sensitive = false;
@@ -219,10 +255,54 @@ public static class Program
         {
             var css = CssProvider.New();
             string cssStr = @"
-overlay > box, label, button, checkbutton, combobox, scale {
-  background-color: rgba(0,0,0,0.55);
-  color: #fff;
-  padding: 2px;
+overlay > box.control-panel {
+  background-color: rgba(36, 36, 36, 0.78);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+}
+
+overlay > box.control-panel label.control-section-label {
+  color: #f5f5f5;
+  font-weight: 600;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  letter-spacing: 0.4px;
+}
+
+overlay > box.control-panel label.control-inline-label {
+  color: #f0f0f0;
+  font-weight: 600;
+  margin-right: 10px;
+}
+
+overlay > box.control-panel .control-input,
+overlay > box.control-panel .control-toggle,
+overlay > box.control-panel .control-button {
+  background-color: rgba(64, 64, 64, 0.88);
+  color: #fefefe;
+  border-radius: 12px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+}
+
+overlay > box.control-panel scale.control-input trough {
+  background-color: rgba(28, 28, 28, 0.65);
+  border-radius: 999px;
+}
+
+overlay > box.control-panel scale.control-input highlight {
+  background-color: #f1b733;
+  border-radius: 999px;
+}
+
+overlay label.hud-readout {
+  background-color: rgba(0, 0, 0, 0.55);
+  color: #fefefe;
+  padding: 12px 16px;
+  border-radius: 12px;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.5);
 }
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);
@@ -461,6 +541,7 @@ overlay > box, label, button, checkbutton, combobox, scale {
             var (iso, us) = GetRequestedIsoAndShutter();
             double gain = Math.Max(1.0, iso / 100.0);
             string manualArgs = _autoAE ? "" : $" --shutter {us} --gain {gain:0.###} ";
+            var (capWidth, capHeight) = GetSelectedStillResolution();
 
             int exitCode = -1;
             string? dngPathFinal = null;
@@ -473,7 +554,7 @@ overlay > box, label, button, checkbutton, combobox, scale {
                 {
                     string baseName = Path.Combine(outDir, $"RPICAM_{ts}");
                     string dngPath  = baseName + ".dng";
-                    string cmd = $"rpicam-still -n --immediate -t 1 --raw -o \"{dngPath}\"{manualArgs} --width 1920 --height 1080";
+                    string cmd = $"rpicam-still -n --immediate -t 1 --raw -o \"{dngPath}\"{manualArgs} --width {capWidth} --height {capHeight}";
                     exitCode = await RunShellAsync(cmd);
                     if (exitCode == 0 && File.Exists(dngPath)) { dngPathFinal = dngPath; break; }
                 }
@@ -485,7 +566,7 @@ overlay > box, label, button, checkbutton, combobox, scale {
                     string dngB     = basePath + ".jpg.dng";
                     metaPath        = basePath + ".json";
 
-                    string cmd = $"libcamera-still -n --immediate -t 1 -o \"{jpgPath}\" --raw{manualArgs} --metadata \"{metaPath}\"";
+                    string cmd = $"libcamera-still -n --immediate -t 1 -o \"{jpgPath}\" --raw --width {capWidth} --height {capHeight}{manualArgs} --metadata \"{metaPath}\"";
                     exitCode = await RunShellAsync(cmd);
                     if (exitCode == 0)
                     {
@@ -614,6 +695,14 @@ overlay > box, label, button, checkbutton, combobox, scale {
             }
         }
         return (iso, us);
+    }
+
+    private static (int width, int height) GetSelectedStillResolution()
+    {
+        int idx = _resBox?.Active ?? -1;
+        if (idx >= 0 && idx < ResolutionOptions.Length)
+            return (ResolutionOptions[idx].Width, ResolutionOptions[idx].Height);
+        return (ResolutionOptions[0].Width, ResolutionOptions[0].Height);
     }
 
     private static string ShutterLabel(double sec)
