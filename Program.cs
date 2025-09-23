@@ -304,6 +304,22 @@ overlay label.hud-readout {
   border-radius: 12px;
   box-shadow: 0 6px 22px rgba(0,0,0,0.5);
 }
+
+/* Overrides: black text for dropdowns and Capture DNG button */
+overlay > box.control-panel .control-input,
+overlay > box.control-panel .control-button {
+  color: #000000;
+  background-color: rgba(255,255,255,0.92);
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+}
+overlay > box.control-panel combobox popover,
+overlay > box.control-panel combobox popover label {
+  color: #000000;
+}
+overlay > box.control-panel combobox popover {
+  background-color: rgba(255,255,255,0.98);
+}
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);
             var display = Gdk.Display.GetDefault();
