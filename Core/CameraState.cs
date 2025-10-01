@@ -121,6 +121,12 @@ public sealed class CameraState
         return (option.Width, option.Height);
     }
 
+    public string GetSelectedSensorMode()
+    {
+        var option = CameraPresets.ResolutionOptions[Math.Clamp(_resolutionIndex, 0, CameraPresets.ResolutionOptions.Length - 1)];
+        return option.Mode;
+    }
+
     public void UpdateLastCapture(long? expUs, int? iso, double? analogueGain)
     {
         LastExposureMicroseconds = expUs;
