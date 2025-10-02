@@ -21,6 +21,8 @@ public sealed class CameraController : IDisposable
     private Element? _sink;
     private Picture? _picture;
     private Label? _hud;
+    private bool _rebuildScheduled;
+    private uint _delayedRebuildId;
 
     private uint _statusPollId;
     private bool _statusRefreshInFlight;
@@ -58,6 +60,12 @@ public sealed class CameraController : IDisposable
         {
             GLibFunctions.SourceRemove(_statusPollId);
             _statusPollId = 0;
+        }
+
+        if (_delayedRebuildId != 0)
+        {
+            GLibFunctions.SourceRemove(_delayedRebuildId);
+            _delayedRebuildId = 0;
         }
 
         try
@@ -163,6 +171,16 @@ public sealed class CameraController : IDisposable
                     _lastSettings = updated;
                     ApplySettingsToState(updated);
                     UpdateHudFromCachedSettings();
+
+                    if (includeAuto || includeMode)
+                    {
+                        SchedulePreviewRebuild();
+                    }
+
+                    // Camera reconfiguration in the daemon drops the preview socket briefly.
+                    // Schedule an additional rebuild a short time later so we reconnect once
+                    // the new stream is ready.
+                    SchedulePreviewRebuildDelayed(600);
                 }
             }
         }
@@ -257,11 +275,8 @@ public sealed class CameraController : IDisposable
 
                 if ((socketChanged || capsChanged) && !forcePreviewRebuild)
                 {
-                    GLibFunctions.IdleAdd(0, () =>
-                    {
-                        RebuildPreview();
-                        return false;
-                    });
+                    SchedulePreviewRebuild();
+                    SchedulePreviewRebuildDelayed(600);
                 }
             }
 
@@ -284,6 +299,12 @@ public sealed class CameraController : IDisposable
 
     private void RebuildPreview()
     {
+        _rebuildScheduled = false;
+        if (_delayedRebuildId != 0)
+        {
+            GLibFunctions.SourceRemove(_delayedRebuildId);
+            _delayedRebuildId = 0;
+        }
         if (_statusPollId != 0)
         {
             GLibFunctions.SourceRemove(_statusPollId);
@@ -379,6 +400,38 @@ public sealed class CameraController : IDisposable
         {
             _ = RefreshDaemonStatusAsync();
             return true;
+        });
+    }
+
+    private void SchedulePreviewRebuild()
+    {
+        if (_rebuildScheduled)
+        {
+            return;
+        }
+
+        _rebuildScheduled = true;
+        GLibFunctions.IdleAdd(0, () =>
+        {
+            _rebuildScheduled = false;
+            RebuildPreview();
+            return false;
+        });
+    }
+
+    private void SchedulePreviewRebuildDelayed(uint delayMilliseconds)
+    {
+        if (_delayedRebuildId != 0)
+        {
+            GLibFunctions.SourceRemove(_delayedRebuildId);
+            _delayedRebuildId = 0;
+        }
+
+        _delayedRebuildId = GLibFunctions.TimeoutAdd(0, delayMilliseconds, () =>
+        {
+            _delayedRebuildId = 0;
+            RebuildPreview();
+            return false;
         });
     }
 
