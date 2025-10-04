@@ -18,7 +18,7 @@
       <object class="GtkButton" id="settings_close_button">
         <property name="css-classes">control-button</property>
         <property name="halign">start</property>
-        <property name="label">←</property>
+        <property name="label">Back</property>
       </object>
     </child>
     <child>

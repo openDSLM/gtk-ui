@@ -10,11 +10,14 @@
 
   <ItemGroup>
     <PackageReference Include="GirCore.Gdk-4.0" Version="0.6.3" />
+    <PackageReference Include="GirCore.GdkPixbuf-2.0" Version="0.6.3" />
     <PackageReference Include="GirCore.Gio-2.0" Version="0.6.3" />
     <PackageReference Include="GirCore.GLib-2.0" Version="0.6.3" />
     <PackageReference Include="GirCore.Gst-1.0" Version="0.6.3" />
     <PackageReference Include="GirCore.GstVideo-1.0" Version="0.6.3" />
     <PackageReference Include="GirCore.Gtk-4.0" Version="0.6.3" />
+    <PackageReference Include="MetadataExtractor" Version="2.7.2" />
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="13.6.0" />
   </ItemGroup>
 
   <ItemGroup>

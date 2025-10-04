@@ -61,6 +61,13 @@
           </object>
         </child>
         <child>
+          <object class="GtkButton" id="gallery_button">
+            <property name="label">Gallery</property>
+            <property name="css-classes">control-button</property>
+            <property name="halign">fill</property>
+          </object>
+        </child>
+        <child>
           <object class="GtkBox" id="auto_row">
             <property name="spacing">6</property>
             <property name="css-classes">control-row</property>

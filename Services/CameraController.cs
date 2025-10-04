@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using Gtk;
 using Gst;
 using GObject;
@@ -11,6 +14,7 @@ using Gdk;
 public sealed class CameraController : IDisposable
 {
     private const int StatusPollIntervalMs = 1000;
+    private const int GalleryScanLimit = 240;
 
     private readonly CameraState _state;
     private readonly ActionDispatcher _dispatcher;
@@ -31,6 +35,31 @@ public sealed class CameraController : IDisposable
     private string? _previewCaps;
     private DaemonSettings? _lastSettings;
     private string? _lastCaptureToken;
+    private bool _galleryRefreshInFlight;
+
+    private static readonly HashSet<string> GalleryFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".dng",
+        ".nef",
+        ".cr2",
+        ".cr3",
+        ".arw",
+        ".raf",
+        ".rw2",
+        ".orf",
+        ".srw",
+        ".pef",
+        ".raw",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".tif",
+        ".tiff",
+        ".bmp",
+        ".webp",
+        ".heic",
+        ".heif"
+    };
 
     public event EventHandler? ZoomInfrastructureChanged;
 
@@ -155,6 +184,11 @@ public sealed class CameraController : IDisposable
         {
             UpdateHudFromCachedSettings();
             return Task.CompletedTask;
+        });
+
+        _dispatcher.Register(AppActionId.LoadGallery, async () =>
+        {
+            await RefreshGalleryFromDiskAsync().ConfigureAwait(false);
         });
     }
 
@@ -599,6 +633,123 @@ public sealed class CameraController : IDisposable
         _hud.SetText($"{live}\n{last}");
     }
 
+    private async Task RefreshGalleryFromDiskAsync()
+    {
+        if (_galleryRefreshInFlight)
+        {
+            return;
+        }
+
+        _galleryRefreshInFlight = true;
+
+        try
+        {
+            string outputDir = _state.OutputDirectory;
+            var files = await System.Threading.Tasks.Task.Run(() => EnumerateGalleryFiles(outputDir)).ConfigureAwait(false);
+
+            GLibFunctions.IdleAdd(0, () =>
+            {
+                _state.ReplaceRecentCaptures(files);
+                return false;
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to refresh gallery: {ex.Message}");
+        }
+        finally
+        {
+            _galleryRefreshInFlight = false;
+        }
+    }
+
+    private List<string> EnumerateGalleryFiles(string? directory)
+    {
+        var results = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return results;
+        }
+
+        try
+        {
+            var ordered = Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                .Where(IsSupportedGalleryFile)
+                .Select(path =>
+                {
+                    System.DateTime lastWrite;
+                    try
+                    {
+                        lastWrite = File.GetLastWriteTimeUtc(path);
+                    }
+                    catch
+                    {
+                        lastWrite = System.DateTime.MinValue;
+                    }
+
+                    System.DateTime creation;
+                    try
+                    {
+                        creation = File.GetCreationTimeUtc(path);
+                    }
+                    catch
+                    {
+                        creation = System.DateTime.MinValue;
+                    }
+
+                    return new
+                    {
+                        Path = path,
+                        LastWrite = lastWrite,
+                        Creation = creation
+                    };
+                })
+                .OrderByDescending(file => file.LastWrite)
+                .ThenByDescending(file => file.Creation)
+                .Take(GalleryScanLimit);
+
+            foreach (var file in ordered)
+            {
+                try
+                {
+                    results.Add(Path.GetFullPath(file.Path));
+                }
+                catch
+                {
+                    results.Add(file.Path);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to enumerate gallery files from '{directory}': {ex.Message}");
+        }
+
+        return results;
+    }
+
+    private static bool IsSupportedGalleryFile(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        if (path.EndsWith(".dng.gz", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        string extension = Path.GetExtension(path);
+        if (string.IsNullOrEmpty(extension))
+        {
+            return false;
+        }
+
+        return GalleryFileExtensions.Contains(extension);
+    }
+
     private void ProcessLastCapture(DaemonCaptureResult capture)
     {
         string token = $"{capture.Count}:{string.Join(',', capture.Frames)}";
@@ -608,6 +759,17 @@ public sealed class CameraController : IDisposable
         }
 
         _lastCaptureToken = token;
+
+        var resolvedFrames = ResolveCapturePaths(capture.Frames);
+        if (resolvedFrames.Count > 0)
+        {
+            var frameSnapshot = resolvedFrames.ToArray();
+            GLibFunctions.IdleAdd(0, () =>
+            {
+                _state.AppendRecentCaptures(frameSnapshot);
+                return false;
+            });
+        }
 
         if (_lastSettings == null)
         {
@@ -619,6 +781,42 @@ public sealed class CameraController : IDisposable
         double? ag = _lastSettings.AutoExposure ? null : _lastSettings.AnalogueGain;
 
         _state.UpdateLastCapture(expUs, iso, ag);
+    }
+
+    private List<string> ResolveCapturePaths(IReadOnlyList<string> frames)
+    {
+        var results = new List<string>();
+        if (frames == null || frames.Count == 0)
+        {
+            return results;
+        }
+
+        string baseDir = _state.OutputDirectory;
+        foreach (var frame in frames)
+        {
+            if (string.IsNullOrWhiteSpace(frame))
+            {
+                continue;
+            }
+
+            string candidate = frame.Trim();
+            if (!Path.IsPathRooted(candidate) && !string.IsNullOrEmpty(baseDir))
+            {
+                candidate = Path.Combine(baseDir, candidate);
+            }
+
+            try
+            {
+                candidate = Path.GetFullPath(candidate);
+            }
+            catch
+            {
+            }
+
+            results.Add(candidate);
+        }
+
+        return results;
     }
 
     private string FormatLiveHud(DaemonSettings settings)

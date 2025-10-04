@@ -10,5 +10,6 @@ public enum AppActionId
     CaptureStill,
     RefreshPreview,
     RefreshHud,
-    UpdateOutputDirectory
+    UpdateOutputDirectory,
+    LoadGallery
 }

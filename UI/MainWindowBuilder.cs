@@ -7,6 +7,7 @@ public sealed class MainWindowBuilder
     private const string MainLayoutFileName = "camera_main_window.ui";
     private const string LiveLayoutFileName = "camera_live_view.ui";
     private const string SettingsLayoutFileName = "camera_settings_page.ui";
+    private const string GalleryLayoutFileName = "camera_gallery_page.ui";
 
     private readonly CameraState _state;
     private readonly ActionDispatcher _dispatcher;
@@ -46,6 +47,7 @@ public sealed class MainWindowBuilder
         var panYScale = Require<Scale>(liveBuilder, "pan_y_scale");
         var captureButton = Require<Button>(liveBuilder, "capture_button");
         var settingsButton = Require<Button>(liveBuilder, "settings_button");
+        var galleryButton = Require<Button>(liveBuilder, "gallery_button");
 
         using var settingsBuilder = Builder.NewFromFile(ResolveLayoutPath(SettingsLayoutFileName));
         var settingsRoot = Require<Box>(settingsBuilder, "settings_root");
@@ -61,6 +63,30 @@ public sealed class MainWindowBuilder
             outputDirEntry,
             outputDirApplyButton);
 
+        using var galleryBuilder = Builder.NewFromFile(ResolveLayoutPath(GalleryLayoutFileName));
+        var galleryRoot = Require<Box>(galleryBuilder, "gallery_root");
+        var galleryBackButton = Require<Button>(galleryBuilder, "gallery_back_button");
+        var galleryStack = Require<Stack>(galleryBuilder, "gallery_stack");
+        var galleryEmptyBox = Require<Box>(galleryBuilder, "gallery_empty_box");
+        var galleryScroller = Require<ScrolledWindow>(galleryBuilder, "gallery_scroller");
+        var galleryFlow = Require<FlowBox>(galleryBuilder, "gallery_flow");
+        var galleryViewerBox = Require<Box>(galleryBuilder, "gallery_viewer_box");
+        var galleryViewerBackButton = Require<Button>(galleryBuilder, "gallery_viewer_back_button");
+        var galleryFullPicture = Require<Picture>(galleryBuilder, "gallery_full_picture");
+        var galleryFullLabel = Require<Label>(galleryBuilder, "gallery_full_label");
+
+        var galleryView = new GalleryView(
+            galleryRoot,
+            galleryBackButton,
+            galleryStack,
+            galleryEmptyBox,
+            galleryScroller,
+            galleryFlow,
+            galleryViewerBox,
+            galleryViewerBackButton,
+            galleryFullPicture,
+            galleryFullLabel);
+
         ConfigureAutoToggle(autoToggle);
         ConfigureIsoCombo(isoBox);
         ConfigureShutterCombo(shutterBox);
@@ -68,11 +94,12 @@ public sealed class MainWindowBuilder
         ConfigureCaptureButton(captureButton);
         ConfigureResolutionCombo(settingsView.ResolutionCombo);
         ConfigureSettingsPanel(settingsView);
-        ConfigureSettingsNavigation(stack, liveOverlay, settingsView.Root, settingsButton, settingsView.CloseButton);
+        ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
 
         StyleInstaller.TryInstall();
 
         BindStateToControls(autoToggle, isoBox, shutterBox, settingsView.ResolutionCombo, zoomScale, panXScale, panYScale, settingsView);
+        BindGallery(galleryView);
 
         return new CameraWindow(
             window,
@@ -86,9 +113,12 @@ public sealed class MainWindowBuilder
             panYScale,
             captureButton,
             settingsButton,
+            galleryButton,
             stack,
             liveOverlay,
-            settingsView);
+            settingsView,
+            galleryView.Root,
+            galleryView);
     }
 
     private static T Require<T>(Builder builder, string id) where T : class
@@ -280,18 +310,30 @@ public sealed class MainWindowBuilder
         settingsView.OutputDirectoryApplyButton.OnClicked += async (_, __) => await CommitAsync();
     }
 
-    private void ConfigureSettingsNavigation(Stack stack, Widget livePage, Widget settingsPage, Button settingsButton, Button settingsCloseButton)
+    private void ConfigureNavigation(
+        Stack stack,
+        Widget livePage,
+        Widget settingsPage,
+        Widget galleryPage,
+        Button settingsButton,
+        Button settingsCloseButton,
+        Button galleryButton,
+        GalleryView galleryView)
     {
         livePage.SetName("live-view");
         settingsPage.SetName("settings-view");
+        galleryPage.SetName("gallery-view");
 
         stack.AddChild(livePage);
         stack.AddChild(settingsPage);
+        stack.AddChild(galleryPage);
 
         void ShowLive()
         {
             stack.SetVisibleChild(livePage);
             settingsButton.Sensitive = true;
+            galleryButton.Sensitive = true;
+            galleryView.EnsureGridVisible();
         }
 
         ShowLive();
@@ -301,9 +343,25 @@ public sealed class MainWindowBuilder
             if (!settingsButton.Sensitive) return;
             stack.SetVisibleChild(settingsPage);
             settingsButton.Sensitive = false;
+            galleryButton.Sensitive = true;
         };
 
         settingsCloseButton.OnClicked += (_, __) =>
+        {
+            ShowLive();
+        };
+
+        galleryButton.OnClicked += (_, __) =>
+        {
+            if (!galleryButton.Sensitive) return;
+            _dispatcher.FireAndForget(AppActionId.LoadGallery);
+            stack.SetVisibleChild(galleryPage);
+            galleryButton.Sensitive = false;
+            settingsButton.Sensitive = true;
+            galleryView.EnsureGridVisible();
+        };
+
+        galleryView.BackRequested += (_, __) =>
         {
             ShowLive();
         };
@@ -421,6 +479,33 @@ public sealed class MainWindowBuilder
 
         _controller.ZoomInfrastructureChanged += (_, __) => UpdatePanSensitivity(panXScale, panYScale);
         UpdatePanSensitivity(panXScale, panYScale);
+    }
+
+    private void BindGallery(GalleryView galleryView)
+    {
+        if (galleryView is null)
+        {
+            throw new ArgumentNullException(nameof(galleryView));
+        }
+
+        void Update()
+        {
+            galleryView.UpdateItems(_state.RecentCaptures);
+        }
+
+        Update();
+
+        _state.RecentCapturesChanged += (_, __) =>
+        {
+            Update();
+        };
+
+        _state.OutputDirectoryChanged += (_, __) =>
+        {
+            _dispatcher.FireAndForget(AppActionId.LoadGallery);
+        };
+
+        _dispatcher.FireAndForget(AppActionId.LoadGallery);
     }
 
     private void UpdatePanSensitivity(Scale panXScale, Scale panYScale)

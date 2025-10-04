@@ -127,6 +127,49 @@ box.settings-page entry.settings-input {
 .text-black {
   color: #000000;
 }
+
+label.gallery-title {
+  font-weight: 700;
+  font-size: 24px;
+  letter-spacing: 0.6px;
+  color: #f5f5f5;
+}
+
+flowboxchild.gallery-thumb {
+  background-color: rgba(36, 36, 36, 0.78);
+  border-radius: 18px;
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  min-width: 240px;
+  max-width: 240px;
+}
+
+flowboxchild.gallery-thumb picture.gallery-thumb-picture {
+  background-color: rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  min-width: 240px;
+  min-height: 160px;
+  max-width: 240px;
+  max-height: 160px;
+}
+
+flowboxchild.gallery-thumb picture.gallery-thumb-picture-missing {
+  background-color: rgba(64, 64, 64, 0.65);
+  min-width: 240px;
+  min-height: 160px;
+  max-width: 240px;
+  max-height: 160px;
+}
+
+.gallery-caption {
+  font-weight: 600;
+  color: #f5f5f5;
+}
+
+.gallery-error {
+  color: #ffb347;
+  font-size: 12px;
+}
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);
             var display = Gdk.Display.GetDefault();

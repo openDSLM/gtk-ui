@@ -12,7 +12,10 @@ public sealed record CameraWindow(
     Scale PanYScale,
     Button CaptureButton,
     Button SettingsButton,
+    Button GalleryButton,
     Stack PageStack,
     Widget LivePage,
-    CameraSettingsView SettingsView
+    CameraSettingsView SettingsView,
+    Widget GalleryPage,
+    GalleryView GalleryView
 );

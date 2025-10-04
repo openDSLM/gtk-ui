@@ -1,7 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
 
 public sealed class CameraState
 {
+    private const int MaxRecentCaptures = 120;
+
     private bool _autoExposureEnabled = true;
     private int _isoIndex = Array.IndexOf(CameraPresets.IsoSteps, 400);
     private int _shutterIndex = Array.IndexOf(CameraPresets.ShutterSteps, 1.0 / 60);
@@ -10,6 +15,13 @@ public sealed class CameraState
     private double _panX = 0.5;
     private double _panY = 0.5;
     private string _outputDirectory = "/ssd/RAW";
+    private readonly List<string> _recentCaptures = new();
+    private readonly ReadOnlyCollection<string> _recentCaptureView;
+
+    public CameraState()
+    {
+        _recentCaptureView = _recentCaptures.AsReadOnly();
+    }
 
     public event EventHandler<bool>? AutoExposureChanged;
     public event EventHandler<int>? IsoIndexChanged;
@@ -20,6 +32,7 @@ public sealed class CameraState
     public event EventHandler<string>? OutputDirectoryChanged;
 
     public event EventHandler? LastCaptureChanged;
+    public event EventHandler? RecentCapturesChanged;
 
     public long? LastExposureMicroseconds { get; private set; }
     public int? LastIso { get; private set; }
@@ -34,6 +47,93 @@ public sealed class CameraState
             _outputDirectory = value;
             OutputDirectoryChanged?.Invoke(this, value);
         }
+    }
+
+    public IReadOnlyList<string> RecentCaptures => _recentCaptureView;
+
+    public void AppendRecentCaptures(IEnumerable<string> paths)
+    {
+        if (paths == null)
+        {
+            return;
+        }
+
+        bool changed = false;
+        foreach (var path in paths)
+        {
+            string? normalized = NormalizeCapturePath(path);
+            if (string.IsNullOrEmpty(normalized))
+            {
+                continue;
+            }
+
+            int existingIndex = _recentCaptures.FindIndex(p => string.Equals(p, normalized, StringComparison.OrdinalIgnoreCase));
+            if (existingIndex >= 0)
+            {
+                if (existingIndex == 0)
+                {
+                    continue;
+                }
+
+                _recentCaptures.RemoveAt(existingIndex);
+            }
+
+            _recentCaptures.Insert(0, normalized);
+            changed = true;
+        }
+
+        if (_recentCaptures.Count > MaxRecentCaptures)
+        {
+            _recentCaptures.RemoveRange(MaxRecentCaptures, _recentCaptures.Count - MaxRecentCaptures);
+            changed = true;
+        }
+
+        if (changed)
+        {
+            RecentCapturesChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public void ReplaceRecentCaptures(IEnumerable<string>? paths)
+    {
+        _recentCaptures.Clear();
+
+        if (paths != null)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var candidate in paths)
+            {
+                string? normalized = NormalizeCapturePath(candidate);
+                if (string.IsNullOrEmpty(normalized))
+                {
+                    continue;
+                }
+
+                if (!seen.Add(normalized))
+                {
+                    continue;
+                }
+
+                _recentCaptures.Add(normalized);
+                if (_recentCaptures.Count >= MaxRecentCaptures)
+                {
+                    break;
+                }
+            }
+        }
+
+        RecentCapturesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void ClearRecentCaptures()
+    {
+        if (_recentCaptures.Count == 0)
+        {
+            return;
+        }
+
+        _recentCaptures.Clear();
+        RecentCapturesChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public bool AutoExposureEnabled
@@ -146,5 +246,24 @@ public sealed class CameraState
         LastIso = iso;
         LastAnalogueGain = analogueGain;
         LastCaptureChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static string? NormalizeCapturePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        string trimmed = path.Trim();
+
+        try
+        {
+            return Path.GetFullPath(trimmed);
+        }
+        catch
+        {
+            return trimmed;
+        }
     }
 }

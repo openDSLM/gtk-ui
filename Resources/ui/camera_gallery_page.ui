@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <object class="GtkBox" id="gallery_root">
+    <property name="orientation">vertical</property>
+    <property name="spacing">12</property>
+    <property name="hexpand">true</property>
+    <property name="vexpand">true</property>
+    <property name="margin-top">24</property>
+    <property name="margin-bottom">24</property>
+    <property name="margin-start">24</property>
+    <property name="margin-end">24</property>
+    <child>
+      <object class="GtkBox" id="gallery_header">
+        <property name="spacing">8</property>
+        <property name="hexpand">true</property>
+        <child>
+          <object class="GtkButton" id="gallery_back_button">
+            <property name="label">← Back to Live</property>
+            <property name="halign">start</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel" id="gallery_title">
+            <property name="hexpand">true</property>
+            <property name="halign">start</property>
+            <property name="css-classes">gallery-title</property>
+            <property name="label">Gallery</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkStack" id="gallery_stack">
+        <property name="hexpand">true</property>
+        <property name="vexpand">true</property>
+        <property name="transition-type">crossfade</property>
+        <child>
+          <object class="GtkStackPage" id="gallery_empty_page">
+            <property name="name">empty</property>
+            <property name="child">
+              <object class="GtkBox" id="gallery_empty_box">
+                <property name="orientation">vertical</property>
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+                <property name="spacing">12</property>
+                <property name="halign">center</property>
+                <property name="valign">center</property>
+                <child>
+                  <object class="GtkLabel" id="gallery_empty_label">
+                    <property name="justify">center</property>
+                    <property name="wrap">true</property>
+                    <property name="label">No captures yet. Take a photo to populate the gallery.</property>
+                  </object>
+                </child>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkStackPage" id="gallery_grid_page">
+            <property name="name">grid</property>
+            <property name="child">
+              <object class="GtkScrolledWindow" id="gallery_scroller">
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+                <child>
+                  <object class="GtkFlowBox" id="gallery_flow">
+                    <property name="column-spacing">12</property>
+                    <property name="row-spacing">12</property>
+                    <property name="margin-bottom">12</property>
+                    <property name="margin-end">12</property>
+                    <property name="margin-start">12</property>
+                    <property name="margin-top">12</property>
+                    <property name="selection-mode">single</property>
+                  </object>
+                </child>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkStackPage" id="gallery_viewer_page">
+            <property name="name">viewer</property>
+            <property name="child">
+              <object class="GtkBox" id="gallery_viewer_box">
+                <property name="orientation">vertical</property>
+                <property name="spacing">12</property>
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+                <child>
+                  <object class="GtkOverlay" id="gallery_viewer_overlay">
+                    <property name="hexpand">true</property>
+                    <property name="vexpand">true</property>
+                    <child>
+                      <object class="GtkPicture" id="gallery_full_picture">
+                        <property name="hexpand">true</property>
+                        <property name="vexpand">true</property>
+                        <property name="content-fit">contain</property>
+                      </object>
+                    </child>
+                    <child type="overlay">
+                      <object class="GtkBox" id="gallery_viewer_controls">
+                        <property name="halign">end</property>
+                        <property name="valign">start</property>
+                        <property name="spacing">6</property>
+                        <property name="margin-top">12</property>
+                        <property name="margin-end">12</property>
+                        <child>
+                          <object class="GtkButton" id="gallery_viewer_back_button">
+                            <property name="label">Back to Grid</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="gallery_full_label">
+                    <property name="halign">start</property>
+                    <property name="wrap">true</property>
+                  </object>
+                </child>
+              </object>
+            </property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>
