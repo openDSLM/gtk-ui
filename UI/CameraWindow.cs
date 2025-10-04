@@ -6,15 +6,13 @@ public sealed record CameraWindow(
     Label Hud,
     ComboBoxText IsoBox,
     ComboBoxText ShutterBox,
-    ComboBoxText ResolutionBox,
     CheckButton AutoToggle,
     Scale ZoomScale,
     Scale PanXScale,
     Scale PanYScale,
     Button CaptureButton,
     Button SettingsButton,
-    Button SettingsCloseButton,
     Stack PageStack,
     Widget LivePage,
-    Widget SettingsPage
+    CameraSettingsView SettingsView
 );

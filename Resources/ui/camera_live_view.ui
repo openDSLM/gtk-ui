@@ -80,17 +80,6 @@
           </object>
         </child>
         <child>
-          <object class="GtkLabel" id="resolution_label">
-            <property name="label">Still Resolution</property>
-            <property name="css-classes">control-section-label</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkComboBoxText" id="resolution_combo">
-            <property name="css-classes">control-input</property>
-          </object>
-        </child>
-        <child>
           <object class="GtkLabel" id="iso_label">
             <property name="label">ISO</property>
             <property name="css-classes">control-section-label</property>

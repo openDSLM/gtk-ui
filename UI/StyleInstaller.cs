@@ -104,6 +104,26 @@ box.settings-page button.control-button {
 box.settings-page button.control-button label {
   color: #000000;
 }
+
+label.settings-section-label {
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.settings-page .settings-input,
+box.settings-page .settings-input {
+  background-color: rgba(255,255,255,0.92);
+  color: #000000;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.12);
+  padding: 6px 12px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+}
+
+box.settings-page entry.settings-input {
+  min-width: 280px;
+}
 .text-black {
   color: #000000;
 }

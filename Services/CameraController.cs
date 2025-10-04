@@ -121,6 +121,13 @@ public sealed class CameraController : IDisposable
             await PushSettingsToDaemonAsync(includeMode: true).ConfigureAwait(false);
         });
 
+        _dispatcher.Register<UpdateOutputDirectoryPayload>(AppActionId.UpdateOutputDirectory, async payload =>
+        {
+            string path = (payload.Path ?? string.Empty).Trim();
+            _state.OutputDirectory = path;
+            await PushSettingsToDaemonAsync(includeOutputDir: true).ConfigureAwait(false);
+        });
+
         _dispatcher.Register<AdjustZoomPayload>(AppActionId.AdjustZoom, payload =>
         {
             _state.Zoom = payload.Zoom;
@@ -158,11 +165,11 @@ public sealed class CameraController : IDisposable
         EnsureStatusPolling();
     }
 
-    private async Task PushSettingsToDaemonAsync(bool includeAuto = false, bool includeMode = false)
+    private async Task PushSettingsToDaemonAsync(bool includeAuto = false, bool includeMode = false, bool includeOutputDir = false)
     {
         try
         {
-            var patch = BuildSettingsPatch(includeAuto, includeMode);
+            var patch = BuildSettingsPatch(includeAuto, includeMode, includeOutputDir);
             if (patch != null)
             {
                 var updated = await _daemonClient.UpdateSettingsAsync(patch).ConfigureAwait(false);
@@ -190,7 +197,7 @@ public sealed class CameraController : IDisposable
         }
     }
 
-    private DaemonSettingsPatch? BuildSettingsPatch(bool includeAuto, bool includeMode)
+    private DaemonSettingsPatch? BuildSettingsPatch(bool includeAuto, bool includeMode, bool includeOutputDir)
     {
         var patch = new DaemonSettingsPatch();
         bool hasChange = false;
@@ -218,6 +225,17 @@ public sealed class CameraController : IDisposable
                 Fps = CalculateManualFps(shutterUs)
             };
             hasChange = true;
+        }
+
+        if (includeOutputDir)
+        {
+            string desired = _state.OutputDirectory;
+            string? lastKnown = _lastSettings?.OutputDir;
+            if (!string.Equals(desired, lastKnown, StringComparison.Ordinal))
+            {
+                patch = patch with { OutputDir = desired };
+                hasChange = true;
+            }
         }
 
         if (!hasChange)
@@ -300,11 +318,6 @@ public sealed class CameraController : IDisposable
     private void RebuildPreview()
     {
         _rebuildScheduled = false;
-        if (_delayedRebuildId != 0)
-        {
-            GLibFunctions.SourceRemove(_delayedRebuildId);
-            _delayedRebuildId = 0;
-        }
         if (_statusPollId != 0)
         {
             GLibFunctions.SourceRemove(_statusPollId);
@@ -463,6 +476,8 @@ public sealed class CameraController : IDisposable
                 _state.ResolutionIndex = modeIndex;
             }
         }
+
+        _state.OutputDirectory = settings.OutputDir ?? string.Empty;
     }
 
     private static int FindClosestIndex(int[] values, int target)

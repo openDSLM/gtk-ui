@@ -41,7 +41,6 @@ public sealed class MainWindowBuilder
         var autoToggle = Require<CheckButton>(liveBuilder, "auto_toggle");
         var isoBox = Require<ComboBoxText>(liveBuilder, "iso_combo");
         var shutterBox = Require<ComboBoxText>(liveBuilder, "shutter_combo");
-        var resolutionBox = Require<ComboBoxText>(liveBuilder, "resolution_combo");
         var zoomScale = Require<Scale>(liveBuilder, "zoom_scale");
         var panXScale = Require<Scale>(liveBuilder, "pan_x_scale");
         var panYScale = Require<Scale>(liveBuilder, "pan_y_scale");
@@ -49,20 +48,31 @@ public sealed class MainWindowBuilder
         var settingsButton = Require<Button>(liveBuilder, "settings_button");
 
         using var settingsBuilder = Builder.NewFromFile(ResolveLayoutPath(SettingsLayoutFileName));
-        var settingsPage = Require<Box>(settingsBuilder, "settings_root");
+        var settingsRoot = Require<Box>(settingsBuilder, "settings_root");
         var settingsCloseButton = Require<Button>(settingsBuilder, "settings_close_button");
+        var settingsResolutionCombo = Require<ComboBoxText>(settingsBuilder, "settings_resolution_combo");
+        var outputDirEntry = Require<Entry>(settingsBuilder, "output_dir_entry");
+        var outputDirApplyButton = Require<Button>(settingsBuilder, "output_dir_apply_button");
+
+        var settingsView = new CameraSettingsView(
+            settingsRoot,
+            settingsCloseButton,
+            settingsResolutionCombo,
+            outputDirEntry,
+            outputDirApplyButton);
 
         ConfigureAutoToggle(autoToggle);
-        ConfigureResolutionCombo(resolutionBox);
         ConfigureIsoCombo(isoBox);
         ConfigureShutterCombo(shutterBox);
         ConfigureZoomControls(zoomScale, panXScale, panYScale);
         ConfigureCaptureButton(captureButton);
-        ConfigureSettingsNavigation(stack, liveOverlay, settingsPage, settingsButton, settingsCloseButton);
+        ConfigureResolutionCombo(settingsView.ResolutionCombo);
+        ConfigureSettingsPanel(settingsView);
+        ConfigureSettingsNavigation(stack, liveOverlay, settingsView.Root, settingsButton, settingsView.CloseButton);
 
         StyleInstaller.TryInstall();
 
-        BindStateToControls(autoToggle, isoBox, shutterBox, resolutionBox, zoomScale, panXScale, panYScale);
+        BindStateToControls(autoToggle, isoBox, shutterBox, settingsView.ResolutionCombo, zoomScale, panXScale, panYScale, settingsView);
 
         return new CameraWindow(
             window,
@@ -70,17 +80,15 @@ public sealed class MainWindowBuilder
             hud,
             isoBox,
             shutterBox,
-            resolutionBox,
             autoToggle,
             zoomScale,
             panXScale,
             panYScale,
             captureButton,
             settingsButton,
-            settingsCloseButton,
             stack,
             liveOverlay,
-            settingsPage);
+            settingsView);
     }
 
     private static T Require<T>(Builder builder, string id) where T : class
@@ -246,6 +254,32 @@ public sealed class MainWindowBuilder
         };
     }
 
+    private void ConfigureSettingsPanel(CameraSettingsView settingsView)
+    {
+        SetEntryText(settingsView.OutputDirectoryEntry, _state.OutputDirectory);
+
+        async System.Threading.Tasks.Task CommitAsync()
+        {
+            string path = GetEntryText(settingsView.OutputDirectoryEntry).Trim();
+            if (string.Equals(path, _state.OutputDirectory, StringComparison.Ordinal))
+                return;
+
+            try
+            {
+                await _dispatcher.DispatchAsync(AppActionId.UpdateOutputDirectory,
+                    new UpdateOutputDirectoryPayload(path));
+            }
+            finally
+            {
+                // Refresh entry in case the daemon adjusted the value.
+                SetEntryText(settingsView.OutputDirectoryEntry, _state.OutputDirectory);
+            }
+        }
+
+        settingsView.OutputDirectoryEntry.OnActivate += async (_, __) => await CommitAsync();
+        settingsView.OutputDirectoryApplyButton.OnClicked += async (_, __) => await CommitAsync();
+    }
+
     private void ConfigureSettingsNavigation(Stack stack, Widget livePage, Widget settingsPage, Button settingsButton, Button settingsCloseButton)
     {
         livePage.SetName("live-view");
@@ -275,7 +309,7 @@ public sealed class MainWindowBuilder
         };
     }
 
-    private void BindStateToControls(CheckButton autoToggle, ComboBoxText isoBox, ComboBoxText shutterBox, ComboBoxText resBox, Scale zoomScale, Scale panXScale, Scale panYScale)
+    private void BindStateToControls(CheckButton autoToggle, ComboBoxText isoBox, ComboBoxText shutterBox, ComboBoxText resBox, Scale zoomScale, Scale panXScale, Scale panYScale, CameraSettingsView settingsView)
     {
         _state.AutoExposureChanged += (_, enabled) =>
         {
@@ -343,6 +377,11 @@ public sealed class MainWindowBuilder
             }
         };
 
+        _state.OutputDirectoryChanged += (_, path) =>
+        {
+            SetEntryText(settingsView.OutputDirectoryEntry, path ?? string.Empty);
+        };
+
         _state.ZoomChanged += (_, value) =>
         {
             _suppressZoomChange = true;
@@ -389,5 +428,15 @@ public sealed class MainWindowBuilder
         bool enablePan = _controller.SupportsZoomCropping && _state.Zoom > 1.0001;
         panXScale.Sensitive = enablePan;
         panYScale.Sensitive = enablePan;
+    }
+
+    private static string GetEntryText(Entry entry)
+    {
+        return entry.GetText() ?? string.Empty;
+    }
+
+    private static void SetEntryText(Entry entry, string text)
+    {
+        entry.SetText(text ?? string.Empty);
     }
 }
