@@ -1,8 +1,11 @@
 using System;
+using System.IO;
 using Gtk;
 
 public sealed class MainWindowBuilder
 {
+    private const string LayoutFileName = "camera_main_window.ui";
+
     private readonly CameraState _state;
     private readonly ActionDispatcher _dispatcher;
     private readonly CameraController _controller;
@@ -23,82 +26,93 @@ public sealed class MainWindowBuilder
 
     public CameraWindow Build(Gtk.Application app)
     {
-        var window = ApplicationWindow.New(app);
-        window.Title = "openDSLM – Live Preview + RAW (DNG)";
-        window.SetDefaultSize(1280, 720);
+        using var builder = Builder.NewFromFile(ResolveLayoutPath());
 
-        var overlay = Overlay.New();
-        var picture = Picture.New();
-        overlay.SetChild(picture);
+        var window = Require<ApplicationWindow>(builder, "main_window");
+        window.SetApplication(app);
 
-        var hud = Label.New("");
-        hud.Halign = Align.Start;
-        hud.Valign = Align.Start;
-        hud.MarginTop = 8;
-        hud.MarginStart = 8;
-        hud.AddCssClass("hud-readout");
-        overlay.AddOverlay(hud);
+        var picture = Require<Picture>(builder, "live_picture");
+        var hud = Require<Label>(builder, "hud_label");
+        var autoToggle = Require<CheckButton>(builder, "auto_toggle");
+        var isoBox = Require<ComboBoxText>(builder, "iso_combo");
+        var shutterBox = Require<ComboBoxText>(builder, "shutter_combo");
+        var resolutionBox = Require<ComboBoxText>(builder, "resolution_combo");
+        var zoomScale = Require<Scale>(builder, "zoom_scale");
+        var panXScale = Require<Scale>(builder, "pan_x_scale");
+        var panYScale = Require<Scale>(builder, "pan_y_scale");
+        var captureButton = Require<Button>(builder, "capture_button");
 
-        var panel = Box.New(Orientation.Vertical, 8);
-        panel.Halign = Align.End;
-        panel.Valign = Align.Start;
-        panel.MarginTop = 12;
-        panel.MarginEnd = 12;
-        panel.AddCssClass("control-panel");
-
-        var autoToggle = BuildAutoToggle(panel);
-        var resolutionBox = BuildResolutionSection(panel);
-        var isoBox = BuildIsoSection(panel);
-        var shutterBox = BuildShutterSection(panel);
-        (Scale zoomScale, Scale panXScale, Scale panYScale) = BuildZoomSection(panel);
-        var captureButton = BuildCaptureButton(panel);
-
-        overlay.AddOverlay(panel);
+        ConfigureAutoToggle(autoToggle);
+        ConfigureResolutionCombo(resolutionBox);
+        ConfigureIsoCombo(isoBox);
+        ConfigureShutterCombo(shutterBox);
+        ConfigureZoomControls(zoomScale, panXScale, panYScale);
+        ConfigureCaptureButton(captureButton);
 
         StyleInstaller.TryInstall();
-        window.SetChild(overlay);
 
         BindStateToControls(autoToggle, isoBox, shutterBox, resolutionBox, zoomScale, panXScale, panYScale);
 
-        return new CameraWindow(window, picture, hud, isoBox, shutterBox, resolutionBox, autoToggle, zoomScale, panXScale, panYScale, captureButton);
+        return new CameraWindow(
+            window,
+            picture,
+            hud,
+            isoBox,
+            shutterBox,
+            resolutionBox,
+            autoToggle,
+            zoomScale,
+            panXScale,
+            panYScale,
+            captureButton);
     }
 
-    private CheckButton BuildAutoToggle(Box panel)
+    private static T Require<T>(Builder builder, string id) where T : class
     {
-        var autoRow = Box.New(Orientation.Horizontal, 6);
-        autoRow.AddCssClass("control-row");
+        if (builder.GetObject(id) is T instance)
+        {
+            return instance;
+        }
 
-        var autoLabel = Label.New("Auto AE/AGC");
-        autoLabel.AddCssClass("control-inline-label");
-        autoRow.Append(autoLabel);
+        throw new InvalidOperationException($"The UI template is missing an object with id '{id}' of type {typeof(T).Name}.");
+    }
 
-        var autoChk = CheckButton.New();
-        autoChk.Active = _state.AutoExposureEnabled;
-        autoChk.AddCssClass("control-toggle");
-        autoChk.OnToggled += (_, __) =>
+    private static string ResolveLayoutPath()
+    {
+        string baseDir = AppContext.BaseDirectory ?? string.Empty;
+        string candidate = Path.Combine(baseDir, "Resources", "ui", LayoutFileName);
+        if (File.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        string fallback = Path.Combine(Environment.CurrentDirectory, "Resources", "ui", LayoutFileName);
+        if (File.Exists(fallback))
+        {
+            return fallback;
+        }
+
+        throw new FileNotFoundException($"Unable to locate {LayoutFileName}. Ensure it is copied alongside the application binaries.");
+    }
+
+    private void ConfigureAutoToggle(CheckButton autoToggle)
+    {
+        autoToggle.Active = _state.AutoExposureEnabled;
+        autoToggle.OnToggled += (_, __) =>
         {
             if (_suppressAutoToggle) return;
-            _dispatcher.FireAndForget(AppActionId.ToggleAutoExposure, new ToggleAutoExposurePayload(autoChk.Active));
+            _dispatcher.FireAndForget(AppActionId.ToggleAutoExposure, new ToggleAutoExposurePayload(autoToggle.Active));
         };
-
-        autoRow.Append(autoChk);
-        panel.Append(autoRow);
-        return autoChk;
     }
 
-    private ComboBoxText BuildResolutionSection(Box panel)
+    private void ConfigureResolutionCombo(ComboBoxText resBox)
     {
-        var resLabel = Label.New("Still Resolution");
-        resLabel.AddCssClass("control-section-label");
-        panel.Append(resLabel);
-
-        var resBox = ComboBoxText.New();
+        resBox.RemoveAll();
         for (int i = 0; i < CameraPresets.ResolutionOptions.Length; i++)
         {
             resBox.AppendText(CameraPresets.ResolutionOptions[i].Label);
         }
         resBox.Active = _state.ResolutionIndex;
-        resBox.AddCssClass("control-input");
 
         bool updating = false;
         resBox.OnChanged += async (_, __) =>
@@ -114,25 +128,17 @@ public sealed class MainWindowBuilder
                 updating = false;
             }
         };
-
-        panel.Append(resBox);
-        return resBox;
     }
 
-    private ComboBoxText BuildIsoSection(Box panel)
+    private void ConfigureIsoCombo(ComboBoxText isoBox)
     {
-        var isoLabel = Label.New("ISO");
-        isoLabel.AddCssClass("control-section-label");
-        panel.Append(isoLabel);
-
-        var isoBox = ComboBoxText.New();
+        isoBox.RemoveAll();
         foreach (var iso in CameraPresets.IsoSteps)
         {
             isoBox.AppendText(iso.ToString());
         }
         isoBox.Active = _state.IsoIndex;
         isoBox.Sensitive = !_state.AutoExposureEnabled;
-        isoBox.AddCssClass("control-input");
 
         bool updating = false;
         isoBox.OnChanged += async (_, __) =>
@@ -149,57 +155,40 @@ public sealed class MainWindowBuilder
                 updating = false;
             }
         };
-
-        panel.Append(isoBox);
-        return isoBox;
     }
 
-    private ComboBoxText BuildShutterSection(Box panel)
+    private void ConfigureShutterCombo(ComboBoxText shutterBox)
     {
-        var shutLabel = Label.New("Shutter");
-        shutLabel.AddCssClass("control-section-label");
-        panel.Append(shutLabel);
-
-        var shutBox = ComboBoxText.New();
+        shutterBox.RemoveAll();
         foreach (var sec in CameraPresets.ShutterSteps)
         {
-            shutBox.AppendText(CameraController.ShutterLabel(sec));
+            shutterBox.AppendText(CameraController.ShutterLabel(sec));
         }
-        shutBox.Active = _state.ShutterIndex;
-        shutBox.Sensitive = !_state.AutoExposureEnabled;
-        shutBox.AddCssClass("control-input");
+        shutterBox.Active = _state.ShutterIndex;
+        shutterBox.Sensitive = !_state.AutoExposureEnabled;
 
         bool updating = false;
-        shutBox.OnChanged += async (_, __) =>
+        shutterBox.OnChanged += async (_, __) =>
         {
             if (updating || _suppressShutterChange) return;
             if (_state.AutoExposureEnabled) return;
             updating = true;
             try
             {
-                await _dispatcher.DispatchAsync(AppActionId.SelectShutter, new SelectIndexPayload(shutBox.Active));
+                await _dispatcher.DispatchAsync(AppActionId.SelectShutter, new SelectIndexPayload(shutterBox.Active));
             }
             finally
             {
                 updating = false;
             }
         };
-
-        panel.Append(shutBox);
-        return shutBox;
     }
 
-    private (Scale ZoomScale, Scale PanXScale, Scale PanYScale) BuildZoomSection(Box panel)
+    private void ConfigureZoomControls(Scale zoomScale, Scale panXScale, Scale panYScale)
     {
-        var zoomLabel = Label.New("Zoom");
-        zoomLabel.AddCssClass("control-section-label");
-        panel.Append(zoomLabel);
-
-        var zoomAdj = Adjustment.New(1.0, 1.0, 8.0, 0.1, 0.5, 0.0);
-        var zoomScale = Scale.New(Orientation.Horizontal, zoomAdj);
-        zoomScale.Digits = 2;
-        zoomScale.AddCssClass("control-input");
         ((Gtk.Range)zoomScale).SetValue(_state.Zoom);
+        ((Gtk.Range)panXScale).SetValue(_state.PanX);
+        ((Gtk.Range)panYScale).SetValue(_state.PanY);
 
         zoomScale.OnValueChanged += (_, __) =>
         {
@@ -207,21 +196,6 @@ public sealed class MainWindowBuilder
             double value = ((Gtk.Range)zoomScale).GetValue();
             _dispatcher.FireAndForget(AppActionId.AdjustZoom, new AdjustZoomPayload(value));
         };
-
-        panel.Append(zoomScale);
-
-        var panLabel = Label.New("Pan X / Pan Y");
-        panLabel.AddCssClass("control-section-label");
-        panel.Append(panLabel);
-
-        var panXAdj = Adjustment.New(_state.PanX, 0.0, 1.0, 0.01, 0.1, 0.0);
-        var panYAdj = Adjustment.New(_state.PanY, 0.0, 1.0, 0.01, 0.1, 0.0);
-        var panXScale = Scale.New(Orientation.Horizontal, panXAdj);
-        var panYScale = Scale.New(Orientation.Horizontal, panYAdj);
-        panXScale.Digits = 2;
-        panYScale.Digits = 2;
-        panXScale.AddCssClass("control-input");
-        panYScale.AddCssClass("control-input");
 
         panXScale.OnValueChanged += (_, __) =>
         {
@@ -238,31 +212,22 @@ public sealed class MainWindowBuilder
             double y = ((Gtk.Range)panYScale).GetValue();
             _dispatcher.FireAndForget(AppActionId.AdjustPan, new AdjustPanPayload(x, y));
         };
-
-        panel.Append(panXScale);
-        panel.Append(panYScale);
-        return (zoomScale, panXScale, panYScale);
     }
 
-    private Button BuildCaptureButton(Box panel)
+    private void ConfigureCaptureButton(Button captureButton)
     {
-        var btn = Button.NewWithLabel("● Capture DNG");
-        btn.AddCssClass("control-button");
-        btn.OnClicked += async (_, __) =>
+        captureButton.OnClicked += async (_, __) =>
         {
-            btn.Sensitive = false;
+            captureButton.Sensitive = false;
             try
             {
                 await _dispatcher.DispatchAsync(AppActionId.CaptureStill);
             }
             finally
             {
-                btn.Sensitive = true;
+                captureButton.Sensitive = true;
             }
         };
-
-        panel.Append(btn);
-        return btn;
     }
 
     private void BindStateToControls(CheckButton autoToggle, ComboBoxText isoBox, ComboBoxText shutterBox, ComboBoxText resBox, Scale zoomScale, Scale panXScale, Scale panYScale)

@@ -17,4 +17,10 @@
     <PackageReference Include="GirCore.Gtk-4.0" Version="0.6.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Resources\ui\*.ui">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
