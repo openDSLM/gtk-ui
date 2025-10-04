@@ -20,10 +20,15 @@ public sealed class CameraState
     private bool _galleryColorEnabled = true;
     private int _galleryPageIndex;
     private int _galleryPageSize = 4;
+    private readonly UserPreferences _preferences;
 
     public CameraState()
     {
         _recentCaptureView = _recentCaptures.AsReadOnly();
+        _preferences = UserPreferences.Instance;
+        _galleryColorEnabled = _preferences.GalleryColorEnabled;
+        _galleryPageSize = _preferences.GalleryPageSize;
+        EnsureGalleryPageBounds();
     }
 
     public event EventHandler<bool>? AutoExposureChanged;
@@ -264,6 +269,7 @@ public sealed class CameraState
         {
             if (_galleryColorEnabled == value) return;
             _galleryColorEnabled = value;
+            _preferences.GalleryColorEnabled = value;
             GalleryColorEnabledChanged?.Invoke(this, value);
         }
     }
@@ -326,6 +332,7 @@ public sealed class CameraState
             int clamped = Math.Clamp(value, 1, 48);
             if (_galleryPageSize == clamped) return;
             _galleryPageSize = clamped;
+            _preferences.GalleryPageSize = clamped;
             EnsureGalleryPageBounds();
             GalleryPageSizeChanged?.Invoke(this, clamped);
             RecentCapturesChanged?.Invoke(this, EventArgs.Empty);

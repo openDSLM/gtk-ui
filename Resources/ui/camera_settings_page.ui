@@ -44,6 +44,7 @@
         <child>
           <object class="GtkStackSwitcher" id="settings_stack_switcher">
             <property name="halign">start</property>
+            <property name="css-classes">settings-tab-switcher</property>
             <property name="stack">settings_stack</property>
           </object>
         </child>

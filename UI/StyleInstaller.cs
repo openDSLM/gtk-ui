@@ -180,6 +180,11 @@ label.gallery-settings-hint {
   color: rgba(255,255,255,0.78);
   font-size: 12px;
 }
+
+stackswitcher.settings-tab-switcher button,
+stackswitcher.settings-tab-switcher button label {
+  color: #000000;
+}
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);
             var display = Gdk.Display.GetDefault();

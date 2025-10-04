@@ -334,10 +334,11 @@ public sealed class GalleryView
 
             if (!colorEnabled)
             {
-                var grayscaleTexture = TryLoadWithMagick(path, false, effectiveMaxWidth, effectiveMaxHeight);
-                if (grayscaleTexture != null)
+                // Fall back to a quick standard load to ensure thumbnails still display when color previews are disabled.
+                var fallbackTexture = TryLoadStandardImage(path, effectiveMaxWidth, effectiveMaxHeight);
+                if (fallbackTexture != null)
                 {
-                    return grayscaleTexture;
+                    return fallbackTexture;
                 }
             }
 
