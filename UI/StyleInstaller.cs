@@ -89,6 +89,23 @@ label.settings-title {
   font-weight: 700;
   font-size: 20px;
   letter-spacing: 0.6px;
+  color: #f5f5f5;
+}
+
+.settings-page button.control-button,
+box.settings-page button.control-button {
+  color: #000000;
+  background-color: rgba(255,255,255,0.92);
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+}
+
+.settings-page button.control-button label,
+box.settings-page button.control-button label {
+  color: #000000;
+}
+.text-black {
+  color: #000000;
 }
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);
