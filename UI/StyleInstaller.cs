@@ -73,6 +73,23 @@ overlay > box.control-panel combobox popover label {
 overlay > box.control-panel combobox popover {
   background-color: rgba(255,255,255,0.98);
 }
+
+box.settings-page {
+  background-color: rgba(36, 36, 36, 0.82);
+  border-radius: 24px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.42);
+  color: #f5f5f5;
+}
+
+box.settings-page label {
+  color: #f5f5f5;
+}
+
+label.settings-title {
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.6px;
+}
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);
             var display = Gdk.Display.GetDefault();

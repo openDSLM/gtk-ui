@@ -4,7 +4,9 @@ using Gtk;
 
 public sealed class MainWindowBuilder
 {
-    private const string LayoutFileName = "camera_main_window.ui";
+    private const string MainLayoutFileName = "camera_main_window.ui";
+    private const string LiveLayoutFileName = "camera_live_view.ui";
+    private const string SettingsLayoutFileName = "camera_settings_page.ui";
 
     private readonly CameraState _state;
     private readonly ActionDispatcher _dispatcher;
@@ -26,21 +28,29 @@ public sealed class MainWindowBuilder
 
     public CameraWindow Build(Gtk.Application app)
     {
-        using var builder = Builder.NewFromFile(ResolveLayoutPath());
+        using var mainBuilder = Builder.NewFromFile(ResolveLayoutPath(MainLayoutFileName));
 
-        var window = Require<ApplicationWindow>(builder, "main_window");
+        var window = Require<ApplicationWindow>(mainBuilder, "main_window");
         window.SetApplication(app);
+        var stack = Require<Stack>(mainBuilder, "page_stack");
 
-        var picture = Require<Picture>(builder, "live_picture");
-        var hud = Require<Label>(builder, "hud_label");
-        var autoToggle = Require<CheckButton>(builder, "auto_toggle");
-        var isoBox = Require<ComboBoxText>(builder, "iso_combo");
-        var shutterBox = Require<ComboBoxText>(builder, "shutter_combo");
-        var resolutionBox = Require<ComboBoxText>(builder, "resolution_combo");
-        var zoomScale = Require<Scale>(builder, "zoom_scale");
-        var panXScale = Require<Scale>(builder, "pan_x_scale");
-        var panYScale = Require<Scale>(builder, "pan_y_scale");
-        var captureButton = Require<Button>(builder, "capture_button");
+        using var liveBuilder = Builder.NewFromFile(ResolveLayoutPath(LiveLayoutFileName));
+        var liveOverlay = Require<Overlay>(liveBuilder, "live_overlay");
+        var picture = Require<Picture>(liveBuilder, "live_picture");
+        var hud = Require<Label>(liveBuilder, "hud_label");
+        var autoToggle = Require<CheckButton>(liveBuilder, "auto_toggle");
+        var isoBox = Require<ComboBoxText>(liveBuilder, "iso_combo");
+        var shutterBox = Require<ComboBoxText>(liveBuilder, "shutter_combo");
+        var resolutionBox = Require<ComboBoxText>(liveBuilder, "resolution_combo");
+        var zoomScale = Require<Scale>(liveBuilder, "zoom_scale");
+        var panXScale = Require<Scale>(liveBuilder, "pan_x_scale");
+        var panYScale = Require<Scale>(liveBuilder, "pan_y_scale");
+        var captureButton = Require<Button>(liveBuilder, "capture_button");
+        var settingsButton = Require<Button>(liveBuilder, "settings_button");
+
+        using var settingsBuilder = Builder.NewFromFile(ResolveLayoutPath(SettingsLayoutFileName));
+        var settingsPage = Require<Box>(settingsBuilder, "settings_root");
+        var settingsCloseButton = Require<Button>(settingsBuilder, "settings_close_button");
 
         ConfigureAutoToggle(autoToggle);
         ConfigureResolutionCombo(resolutionBox);
@@ -48,6 +58,7 @@ public sealed class MainWindowBuilder
         ConfigureShutterCombo(shutterBox);
         ConfigureZoomControls(zoomScale, panXScale, panYScale);
         ConfigureCaptureButton(captureButton);
+        ConfigureSettingsNavigation(stack, liveOverlay, settingsPage, settingsButton, settingsCloseButton);
 
         StyleInstaller.TryInstall();
 
@@ -64,7 +75,12 @@ public sealed class MainWindowBuilder
             zoomScale,
             panXScale,
             panYScale,
-            captureButton);
+            captureButton,
+            settingsButton,
+            settingsCloseButton,
+            stack,
+            liveOverlay,
+            settingsPage);
     }
 
     private static T Require<T>(Builder builder, string id) where T : class
@@ -77,22 +93,22 @@ public sealed class MainWindowBuilder
         throw new InvalidOperationException($"The UI template is missing an object with id '{id}' of type {typeof(T).Name}.");
     }
 
-    private static string ResolveLayoutPath()
+    private static string ResolveLayoutPath(string fileName)
     {
         string baseDir = AppContext.BaseDirectory ?? string.Empty;
-        string candidate = Path.Combine(baseDir, "Resources", "ui", LayoutFileName);
+        string candidate = Path.Combine(baseDir, "Resources", "ui", fileName);
         if (File.Exists(candidate))
         {
             return candidate;
         }
 
-        string fallback = Path.Combine(Environment.CurrentDirectory, "Resources", "ui", LayoutFileName);
+        string fallback = Path.Combine(Environment.CurrentDirectory, "Resources", "ui", fileName);
         if (File.Exists(fallback))
         {
             return fallback;
         }
 
-        throw new FileNotFoundException($"Unable to locate {LayoutFileName}. Ensure it is copied alongside the application binaries.");
+        throw new FileNotFoundException($"Unable to locate {fileName}. Ensure it is copied alongside the application binaries.");
     }
 
     private void ConfigureAutoToggle(CheckButton autoToggle)
@@ -227,6 +243,35 @@ public sealed class MainWindowBuilder
             {
                 captureButton.Sensitive = true;
             }
+        };
+    }
+
+    private void ConfigureSettingsNavigation(Stack stack, Widget livePage, Widget settingsPage, Button settingsButton, Button settingsCloseButton)
+    {
+        livePage.SetName("live-view");
+        settingsPage.SetName("settings-view");
+
+        stack.AddChild(livePage);
+        stack.AddChild(settingsPage);
+
+        void ShowLive()
+        {
+            stack.SetVisibleChild(livePage);
+            settingsButton.Sensitive = true;
+        }
+
+        ShowLive();
+
+        settingsButton.OnClicked += (_, __) =>
+        {
+            if (!settingsButton.Sensitive) return;
+            stack.SetVisibleChild(settingsPage);
+            settingsButton.Sensitive = false;
+        };
+
+        settingsCloseButton.OnClicked += (_, __) =>
+        {
+            ShowLive();
         };
     }
 
