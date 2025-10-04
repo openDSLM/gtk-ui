@@ -9,5 +9,6 @@ public enum AppActionId
     AdjustPan,
     CaptureStill,
     RefreshPreview,
-    RefreshHud
+    RefreshHud,
+    UpdateOutputDirectory
 }

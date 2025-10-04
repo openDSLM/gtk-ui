@@ -73,6 +73,60 @@ overlay > box.control-panel combobox popover label {
 overlay > box.control-panel combobox popover {
   background-color: rgba(255,255,255,0.98);
 }
+
+box.settings-page {
+  background-color: rgba(36, 36, 36, 0.82);
+  border-radius: 24px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.42);
+  color: #f5f5f5;
+}
+
+box.settings-page label {
+  color: #f5f5f5;
+}
+
+label.settings-title {
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.6px;
+  color: #f5f5f5;
+}
+
+.settings-page button.control-button,
+box.settings-page button.control-button {
+  color: #000000;
+  background-color: rgba(255,255,255,0.92);
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+}
+
+.settings-page button.control-button label,
+box.settings-page button.control-button label {
+  color: #000000;
+}
+
+label.settings-section-label {
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.settings-page .settings-input,
+box.settings-page .settings-input {
+  background-color: rgba(255,255,255,0.92);
+  color: #000000;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.12);
+  padding: 6px 12px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+}
+
+box.settings-page entry.settings-input {
+  min-width: 280px;
+}
+.text-black {
+  color: #000000;
+}
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);
             var display = Gdk.Display.GetDefault();

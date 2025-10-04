@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Layout generated for Cambalache editing -->
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <object class="GtkApplicationWindow" id="main_window">
+    <property name="default-width">1280</property>
+    <property name="default-height">720</property>
+    <property name="title">openDSLM – Live Preview + RAW (DNG)</property>
+    <child>
+      <object class="GtkStack" id="page_stack">
+        <property name="hexpand">true</property>
+        <property name="vexpand">true</property>
+        <property name="transition-type">slide-left-right</property>
+      </object>
+    </child>
+  </object>
+</interface>

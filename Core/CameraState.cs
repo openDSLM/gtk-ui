@@ -9,6 +9,7 @@ public sealed class CameraState
     private double _zoom = 1.0;
     private double _panX = 0.5;
     private double _panY = 0.5;
+    private string _outputDirectory = "/ssd/RAW";
 
     public event EventHandler<bool>? AutoExposureChanged;
     public event EventHandler<int>? IsoIndexChanged;
@@ -16,12 +17,24 @@ public sealed class CameraState
     public event EventHandler<int>? ResolutionIndexChanged;
     public event EventHandler<double>? ZoomChanged;
     public event EventHandler<(double X, double Y)>? PanChanged;
+    public event EventHandler<string>? OutputDirectoryChanged;
 
     public event EventHandler? LastCaptureChanged;
 
     public long? LastExposureMicroseconds { get; private set; }
     public int? LastIso { get; private set; }
     public double? LastAnalogueGain { get; private set; }
+    public string OutputDirectory
+    {
+        get => _outputDirectory;
+        set
+        {
+            value ??= string.Empty;
+            if (_outputDirectory == value) return;
+            _outputDirectory = value;
+            OutputDirectoryChanged?.Invoke(this, value);
+        }
+    }
 
     public bool AutoExposureEnabled
     {
@@ -119,6 +132,12 @@ public sealed class CameraState
     {
         var option = CameraPresets.ResolutionOptions[Math.Clamp(_resolutionIndex, 0, CameraPresets.ResolutionOptions.Length - 1)];
         return (option.Width, option.Height);
+    }
+
+    public string GetSelectedSensorMode()
+    {
+        var option = CameraPresets.ResolutionOptions[Math.Clamp(_resolutionIndex, 0, CameraPresets.ResolutionOptions.Length - 1)];
+        return option.Mode;
     }
 
     public void UpdateLastCapture(long? expUs, int? iso, double? analogueGain)

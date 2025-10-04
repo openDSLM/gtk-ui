@@ -9,9 +9,11 @@ public static class CameraPresets
 
     public static readonly int[] IsoSteps = { 100, 200, 400, 800, 1600, 3200, 6400, 12800 };
 
-    public static readonly (string Label, int Width, int Height)[] ResolutionOptions =
+    public static readonly ResolutionOption[] ResolutionOptions =
     {
-        ("1928 x 1090 (2K crop)", 1928, 1090),
-        ("3856 x 2180 (4K full)", 3856, 2180)
+        new("1928 x 1090 (2K crop)", 1928, 1090, "1928:1090:12:P"),
+        new("3856 x 2180 (4K full)", 3856, 2180, "3856:2180:12:P")
     };
 }
+
+public readonly record struct ResolutionOption(string Label, int Width, int Height, string Mode);

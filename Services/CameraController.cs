@@ -1,35 +1,36 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Text.Json;
+using System.Globalization;
 using Gtk;
 using Gst;
 using GObject;
 using GLib;
-using Gdk;
 using GLibFunctions = GLib.Functions;
 using Task = System.Threading.Tasks.Task;
-using TaskInt = System.Threading.Tasks.Task<int>;
+using Gdk;
 
 public sealed class CameraController : IDisposable
 {
-    private const int SRC_W = 1280;
-    private const int SRC_H = 720;
+    private const int StatusPollIntervalMs = 1000;
 
     private readonly CameraState _state;
     private readonly ActionDispatcher _dispatcher;
+    private readonly CameraDaemonClient _daemonClient;
 
     private Pipeline? _pipeline;
     private Element? _src;
     private Element? _sink;
-    private Element? _crop;
-    private Element? _vscale;
     private Picture? _picture;
     private Label? _hud;
-    private uint _livePollId;
+    private bool _rebuildScheduled;
+    private uint _delayedRebuildId;
 
+    private uint _statusPollId;
+    private bool _statusRefreshInFlight;
     private bool _supportsZoomCropping;
+    private string? _previewSocketPath;
+    private string? _previewCaps;
+    private DaemonSettings? _lastSettings;
+    private string? _lastCaptureToken;
 
     public event EventHandler? ZoomInfrastructureChanged;
 
@@ -39,6 +40,10 @@ public sealed class CameraController : IDisposable
     {
         _state = state;
         _dispatcher = dispatcher;
+
+        string baseUrl = Environment.GetEnvironmentVariable("OPENDSLM_DAEMON_URL") ?? "http://127.0.0.1:8400/";
+        if (!baseUrl.EndsWith('/')) baseUrl += "/";
+        _daemonClient = new CameraDaemonClient(new global::System.Uri(baseUrl, UriKind.Absolute));
 
         RegisterActions();
     }
@@ -51,10 +56,16 @@ public sealed class CameraController : IDisposable
 
     public void Dispose()
     {
-        if (_livePollId != 0)
+        if (_statusPollId != 0)
         {
-            GLibFunctions.SourceRemove(_livePollId);
-            _livePollId = 0;
+            GLibFunctions.SourceRemove(_statusPollId);
+            _statusPollId = 0;
+        }
+
+        if (_delayedRebuildId != 0)
+        {
+            GLibFunctions.SourceRemove(_delayedRebuildId);
+            _delayedRebuildId = 0;
         }
 
         try
@@ -67,56 +78,66 @@ public sealed class CameraController : IDisposable
 
         _pipeline?.Dispose();
         _pipeline = null;
+        _src = null;
+        _sink = null;
+
+        _daemonClient.Dispose();
     }
 
     private void RegisterActions()
     {
-        _dispatcher.Register(AppActionId.InitializePreview, () =>
+        _dispatcher.Register(AppActionId.InitializePreview, async () =>
         {
-            RebuildPreview();
-            return Task.CompletedTask;
+            await InitializeFromDaemonAsync().ConfigureAwait(false);
         });
 
-        _dispatcher.Register<ToggleAutoExposurePayload>(AppActionId.ToggleAutoExposure, payload =>
+        _dispatcher.Register<ToggleAutoExposurePayload>(AppActionId.ToggleAutoExposure, async payload =>
         {
             _state.AutoExposureEnabled = payload.Enabled;
-            RebuildPreview();
+            await PushSettingsToDaemonAsync(includeAuto: true).ConfigureAwait(false);
         });
 
-        _dispatcher.Register<SelectIndexPayload>(AppActionId.SelectIso, payload =>
+        _dispatcher.Register<SelectIndexPayload>(AppActionId.SelectIso, async payload =>
         {
             _state.IsoIndex = payload.Index;
             if (!_state.AutoExposureEnabled)
             {
-                RebuildPreview();
+                await PushSettingsToDaemonAsync().ConfigureAwait(false);
             }
         });
 
-        _dispatcher.Register<SelectIndexPayload>(AppActionId.SelectShutter, payload =>
+        _dispatcher.Register<SelectIndexPayload>(AppActionId.SelectShutter, async payload =>
         {
             _state.ShutterIndex = payload.Index;
             if (!_state.AutoExposureEnabled)
             {
-                RebuildPreview();
+                await PushSettingsToDaemonAsync().ConfigureAwait(false);
             }
         });
 
-        _dispatcher.Register<SelectIndexPayload>(AppActionId.SelectResolution, payload =>
+        _dispatcher.Register<SelectIndexPayload>(AppActionId.SelectResolution, async payload =>
         {
             _state.ResolutionIndex = payload.Index;
+            await PushSettingsToDaemonAsync(includeMode: true).ConfigureAwait(false);
+        });
+
+        _dispatcher.Register<UpdateOutputDirectoryPayload>(AppActionId.UpdateOutputDirectory, async payload =>
+        {
+            string path = (payload.Path ?? string.Empty).Trim();
+            _state.OutputDirectory = path;
+            await PushSettingsToDaemonAsync(includeOutputDir: true).ConfigureAwait(false);
         });
 
         _dispatcher.Register<AdjustZoomPayload>(AppActionId.AdjustZoom, payload =>
         {
             _state.Zoom = payload.Zoom;
-            UpdateCropRect();
+            UpdateZoomInfrastructureFlag(false);
         });
 
         _dispatcher.Register<AdjustPanPayload>(AppActionId.AdjustPan, payload =>
         {
             _state.PanX = payload.X;
             _state.PanY = payload.Y;
-            UpdateCropRect();
         });
 
         _dispatcher.Register(AppActionId.RefreshPreview, () =>
@@ -127,22 +148,180 @@ public sealed class CameraController : IDisposable
 
         _dispatcher.Register(AppActionId.CaptureStill, async () =>
         {
-            await CaptureDngSerializedAsync().ConfigureAwait(false);
+            await CaptureStillViaDaemonAsync().ConfigureAwait(false);
         });
 
         _dispatcher.Register(AppActionId.RefreshHud, () =>
         {
-            UpdateLiveHudFromSrc();
+            UpdateHudFromCachedSettings();
             return Task.CompletedTask;
         });
     }
 
-    public void RebuildPreview()
+    private async Task InitializeFromDaemonAsync()
     {
-        if (_livePollId != 0)
+        await RefreshDaemonStatusAsync(forcePreviewRebuild: true).ConfigureAwait(false);
+        RebuildPreview();
+        EnsureStatusPolling();
+    }
+
+    private async Task PushSettingsToDaemonAsync(bool includeAuto = false, bool includeMode = false, bool includeOutputDir = false)
+    {
+        try
         {
-            GLibFunctions.SourceRemove(_livePollId);
-            _livePollId = 0;
+            var patch = BuildSettingsPatch(includeAuto, includeMode, includeOutputDir);
+            if (patch != null)
+            {
+                var updated = await _daemonClient.UpdateSettingsAsync(patch).ConfigureAwait(false);
+                if (updated != null)
+                {
+                    _lastSettings = updated;
+                    ApplySettingsToState(updated);
+                    UpdateHudFromCachedSettings();
+
+                    if (includeAuto || includeMode)
+                    {
+                        SchedulePreviewRebuild();
+                    }
+
+                    // Camera reconfiguration in the daemon drops the preview socket briefly.
+                    // Schedule an additional rebuild a short time later so we reconnect once
+                    // the new stream is ready.
+                    SchedulePreviewRebuildDelayed(600);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to push settings to daemon: {ex.Message}");
+        }
+    }
+
+    private DaemonSettingsPatch? BuildSettingsPatch(bool includeAuto, bool includeMode, bool includeOutputDir)
+    {
+        var patch = new DaemonSettingsPatch();
+        bool hasChange = false;
+
+        if (includeAuto)
+        {
+            patch = patch with { AutoExposure = _state.AutoExposureEnabled };
+            hasChange = true;
+        }
+
+        if (includeMode)
+        {
+            patch = patch with { Mode = _state.GetSelectedSensorMode() };
+            hasChange = true;
+        }
+
+        if (!_state.AutoExposureEnabled)
+        {
+            var (iso, shutterUs) = _state.GetManualRequest();
+            double gain = Math.Max(1.0, iso / 100.0);
+            patch = patch with
+            {
+                ShutterUs = shutterUs,
+                AnalogueGain = gain,
+                Fps = CalculateManualFps(shutterUs)
+            };
+            hasChange = true;
+        }
+
+        if (includeOutputDir)
+        {
+            string desired = _state.OutputDirectory;
+            string? lastKnown = _lastSettings?.OutputDir;
+            if (!string.Equals(desired, lastKnown, StringComparison.Ordinal))
+            {
+                patch = patch with { OutputDir = desired };
+                hasChange = true;
+            }
+        }
+
+        if (!hasChange)
+        {
+            return null;
+        }
+
+        return patch;
+    }
+
+    private static double CalculateManualFps(long shutterUs)
+    {
+        if (shutterUs <= 0) return 30.0;
+        double maxFps = Math.Floor(1_000_000.0 / shutterUs);
+        if (maxFps < 1.0) maxFps = 1.0;
+        if (maxFps > 30.0) maxFps = 30.0;
+        return maxFps;
+    }
+
+    private async Task RefreshDaemonStatusAsync(bool forcePreviewRebuild = false)
+    {
+        if (_statusRefreshInFlight)
+        {
+            return;
+        }
+
+        _statusRefreshInFlight = true;
+        try
+        {
+            var status = await _daemonClient.GetStatusAsync().ConfigureAwait(false);
+            if (status == null)
+            {
+                return;
+            }
+
+            if (status.Settings != null)
+            {
+                _lastSettings = status.Settings;
+                ApplySettingsToState(status.Settings);
+            }
+
+            if (!string.IsNullOrWhiteSpace(status.PreviewClientPipeline))
+            {
+                var (socket, caps) = ExtractPreviewInfo(status.PreviewClientPipeline!);
+                bool socketChanged = !string.IsNullOrEmpty(socket) && !string.Equals(socket, _previewSocketPath, StringComparison.Ordinal);
+                bool capsChanged = !string.IsNullOrEmpty(caps) && !string.Equals(caps, _previewCaps, StringComparison.Ordinal);
+                if (!string.IsNullOrEmpty(socket))
+                {
+                    _previewSocketPath = socket;
+                }
+                if (!string.IsNullOrEmpty(caps))
+                {
+                    _previewCaps = caps;
+                }
+
+                if ((socketChanged || capsChanged) && !forcePreviewRebuild)
+                {
+                    SchedulePreviewRebuild();
+                    SchedulePreviewRebuildDelayed(600);
+                }
+            }
+
+            if (status.LastCapture != null)
+            {
+                ProcessLastCapture(status.LastCapture);
+            }
+
+            UpdateHudFromCachedSettings();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to refresh daemon status: {ex.Message}");
+        }
+        finally
+        {
+            _statusRefreshInFlight = false;
+        }
+    }
+
+    private void RebuildPreview()
+    {
+        _rebuildScheduled = false;
+        if (_statusPollId != 0)
+        {
+            GLibFunctions.SourceRemove(_statusPollId);
+            _statusPollId = 0;
         }
 
         try
@@ -153,104 +332,50 @@ public sealed class CameraController : IDisposable
         {
         }
 
+        _pipeline?.Dispose();
         _pipeline = null;
         _src = null;
         _sink = null;
-        _crop = null;
-        _vscale = null;
 
-        bool haveLibcamera = ElementFactory.Find("libcamerasrc") is not null;
-        var (iso, us) = _state.GetManualRequest();
-        double gain = Math.Max(1.0, iso / 100.0);
+        string socketPath = _previewSocketPath ?? "/tmp/opendslm-preview.sock";
 
-        int fpsNum = 30;
-        if (!_state.AutoExposureEnabled && us > 0)
-        {
-            double maxFps = Math.Max(1.0, Math.Floor(1_000_000.0 / us));
-            if (maxFps > 30.0) maxFps = 30.0;
-            fpsNum = (int)maxFps;
-            if (fpsNum < 1) fpsNum = 1;
-        }
+        var pipeline = Pipeline.New("daemon-preview");
+        _src = ElementFactory.Make("shmsrc", "daemon-src") ?? throw new Exception("Failed to create shmsrc");
+        SetPropString(_src, "socket-path", socketPath);
+        SetPropBool(_src, "is-live", true);
+        SetPropBool(_src, "do-timestamp", true);
 
-        _pipeline = Pipeline.New("p");
-
-        _src = ElementFactory.Make(haveLibcamera ? "libcamerasrc" : "v4l2src", "src")
-               ?? throw new Exception("Failed to create source");
-
-        var queue = ElementFactory.Make("queue", "q")
-                   ?? throw new Exception("Failed to create queue");
-        SetPropInt(queue, "max-size-buffers", 4);
+        var queue = ElementFactory.Make("queue", "daemon-queue") ?? throw new Exception("Failed to create queue");
+        SetPropInt(queue, "max-size-buffers", 2);
         SetPropInt(queue, "leaky", 2);
 
-        var convert1 = ElementFactory.Make("videoconvert", "vc1")
-                        ?? throw new Exception("Failed to create videoconvert vc1");
+        var convert = ElementFactory.Make("videoconvert", "daemon-convert") ?? throw new Exception("Failed to create videoconvert");
 
-        Element? crop = ElementFactory.Make("videocrop", "crop");
-        Element? vscale = ElementFactory.Make("videoscale", "vscale");
-        _crop = crop;
-        _vscale = vscale;
+        _sink = ElementFactory.Make("gtk4paintablesink", "daemon-sink") ?? throw new Exception("gtk4paintablesink not available");
+        SetPropBool(_sink, "sync", false);
 
-        var convert2 = ElementFactory.Make("videoconvert", "vc2")
-                        ?? throw new Exception("Failed to create videoconvert vc2");
+        pipeline.Add(_src);
+        pipeline.Add(queue);
+        pipeline.Add(convert);
+        pipeline.Add(_sink);
 
-        _sink = ElementFactory.Make("gtk4paintablesink", "psink")
-                ?? throw new Exception("gtk4paintablesink not available (install gstreamer1.0-gtk4)");
-
-        _pipeline.Add(_src);
-        _pipeline.Add(queue);
-        _pipeline.Add(convert1);
-        if (crop is not null && vscale is not null)
-        {
-            _pipeline.Add(crop);
-            _pipeline.Add(vscale);
-        }
-        _pipeline.Add(convert2);
-        _pipeline.Add(_sink);
-
-        if (haveLibcamera)
-        {
-            TrySetInt(_src, "exposure-time-mode", _state.AutoExposureEnabled ? 0 : 1);
-            TrySetInt(_src, "analogue-gain-mode", _state.AutoExposureEnabled ? 0 : 1);
-
-            if (_state.AutoExposureEnabled)
-            {
-                SetPropInt(_src, "exposure-time", 0);
-                SetPropDouble(_src, "analogue-gain", 0.0);
-            }
-            else
-            {
-                SetPropInt(_src, "exposure-time", us);
-                SetPropDouble(_src, "analogue-gain", gain);
-            }
-        }
-
-        var capsSrc = Caps.FromString($"video/x-raw,format=NV12,width={SRC_W},height={SRC_H},framerate={fpsNum}/1");
         if (!_src.Link(queue)) throw new Exception("Link src->queue failed");
-        if (!queue.LinkFiltered(convert1, capsSrc)) throw new Exception("Link queue->vc1 (caps) failed");
-
-        bool zoomPath = (crop != null && vscale != null);
-        if (zoomPath)
+        string capsString = _previewCaps ?? "video/x-raw,format=RGBA,width=1920,height=1080,framerate=24000/1000";
+        using (var caps = Caps.FromString(capsString))
         {
-            if (!convert1.Link(crop!)) throw new Exception("Link vc1->crop failed");
-            if (!crop!.Link(vscale!)) throw new Exception("Link crop->vscale failed");
-
-            var capsSizeOnly = Caps.FromString($"video/x-raw,width={SRC_W},height={SRC_H},framerate={fpsNum}/1");
-            if (!vscale!.LinkFiltered(convert2, capsSizeOnly)) throw new Exception("Link vscale->vc2 (caps) failed");
-        }
-        else
-        {
-            if (!convert1.Link(convert2)) throw new Exception("Link vc1->vc2 failed");
+            if (!queue.LinkFiltered(convert, caps)) throw new Exception("Link queue->convert (caps) failed");
         }
 
-        if (!convert2.Link(_sink)) throw new Exception("Link vc2->sink failed");
+        if (!convert.Link(_sink)) throw new Exception("Link convert->sink failed");
 
-        UpdateZoomInfrastructureFlag(zoomPath);
+        _pipeline = pipeline;
 
+        UpdateZoomInfrastructureFlag(false);
         RebindPaintable();
 
         if (_pipeline.SetState(State.Playing) == StateChangeReturn.Failure)
         {
-            throw new Exception("Pipeline failed to start");
+            throw new Exception("Preview pipeline failed to start");
         }
 
         GLibFunctions.IdleAdd(0, () =>
@@ -259,77 +384,179 @@ public sealed class CameraController : IDisposable
             return false;
         });
 
-        GLibFunctions.TimeoutAdd(0, 150, () =>
-        {
-            ApplyManualControlsIfNeeded();
-            UpdateCropRect();
-            return false;
-        });
+        EnsureStatusPolling();
+    }
 
-        _livePollId = GLibFunctions.TimeoutAdd(0, 200, () =>
+    private async Task CaptureStillViaDaemonAsync()
+    {
+        try
         {
-            UpdateLiveHudFromSrc();
+            var result = await _daemonClient.CaptureStillAsync().ConfigureAwait(false);
+            if (result != null && result.Count > 0)
+            {
+                Console.WriteLine($"Captured {result.Count} frame(s): {string.Join(", ", result.Frames)}");
+                ProcessLastCapture(result);
+                UpdateHudFromCachedSettings();
+            }
+            await RefreshDaemonStatusAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to trigger still capture: {ex.Message}");
+        }
+    }
+
+    private void EnsureStatusPolling()
+    {
+        if (_statusPollId != 0) return;
+        _statusPollId = GLibFunctions.TimeoutAdd(0, StatusPollIntervalMs, () =>
+        {
+            _ = RefreshDaemonStatusAsync();
             return true;
         });
     }
 
-    private void UpdateZoomInfrastructureFlag(bool newValue)
+    private void SchedulePreviewRebuild()
     {
-        if (_supportsZoomCropping == newValue) return;
-        _supportsZoomCropping = newValue;
-        ZoomInfrastructureChanged?.Invoke(this, EventArgs.Empty);
+        if (_rebuildScheduled)
+        {
+            return;
+        }
+
+        _rebuildScheduled = true;
+        GLibFunctions.IdleAdd(0, () =>
+        {
+            _rebuildScheduled = false;
+            RebuildPreview();
+            return false;
+        });
     }
 
-    private void ApplyManualControlsIfNeeded()
+    private void SchedulePreviewRebuildDelayed(uint delayMilliseconds)
     {
-        if (_src == null || _state.AutoExposureEnabled) return;
-        var (iso, us) = _state.GetManualRequest();
-        double gain = Math.Max(1.0, iso / 100.0);
-        TrySetInt(_src, "exposure-time-mode", 1);
-        TrySetInt(_src, "analogue-gain-mode", 1);
-        SetPropInt(_src, "exposure-time", us);
-        SetPropDouble(_src, "analogue-gain", gain);
+        if (_delayedRebuildId != 0)
+        {
+            GLibFunctions.SourceRemove(_delayedRebuildId);
+            _delayedRebuildId = 0;
+        }
+
+        _delayedRebuildId = GLibFunctions.TimeoutAdd(0, delayMilliseconds, () =>
+        {
+            _delayedRebuildId = 0;
+            RebuildPreview();
+            return false;
+        });
     }
 
-    private void UpdateCropRect()
+    private void ApplySettingsToState(DaemonSettings settings)
     {
-        if (_crop == null) return;
-
-        double zoom = Math.Max(1.0, _state.Zoom);
-        int cropW = Math.Max(16, (int)Math.Round(SRC_W / zoom));
-        int cropH = Math.Max(16, (int)Math.Round(SRC_H / zoom));
-
-        double centerX = SRC_W * Math.Clamp(_state.PanX, 0.0, 1.0);
-        double centerY = SRC_H * Math.Clamp(_state.PanY, 0.0, 1.0);
-
-        double halfW = cropW / 2.0;
-        double halfH = cropH / 2.0;
-        centerX = Math.Max(halfW, Math.Min(SRC_W - halfW, centerX));
-        centerY = Math.Max(halfH, Math.Min(SRC_H - halfH, centerY));
-
-        int left = (int)Math.Round(centerX - halfW);
-        int top = (int)Math.Round(centerY - halfH);
-        left = Math.Max(0, Math.Min(SRC_W - cropW, left));
-        top = Math.Max(0, Math.Min(SRC_H - cropH, top));
-        int right = SRC_W - (left + cropW);
-        int bottom = SRC_H - (top + cropH);
-
-        SetPropInt(_crop, "left", left);
-        SetPropInt(_crop, "right", right);
-        SetPropInt(_crop, "top", top);
-        SetPropInt(_crop, "bottom", bottom);
-
-        double normalizedX = (left + cropW / 2.0) / SRC_W;
-        double normalizedY = (top + cropH / 2.0) / SRC_H;
-
-        if (Math.Abs(_state.PanX - normalizedX) > 0.0001)
+        if (_state.AutoExposureEnabled != settings.AutoExposure)
         {
-            _state.PanX = normalizedX;
+            _state.AutoExposureEnabled = settings.AutoExposure;
         }
-        if (Math.Abs(_state.PanY - normalizedY) > 0.0001)
+
+        int approxIso = (int)Math.Round(Math.Max(settings.AnalogueGain, 1.0) * 100.0);
+        int isoIndex = FindClosestIndex(CameraPresets.IsoSteps, approxIso);
+        if (_state.IsoIndex != isoIndex)
         {
-            _state.PanY = normalizedY;
+            _state.IsoIndex = isoIndex;
         }
+
+        int shutterIndex = FindClosestIndex(CameraPresets.ShutterSteps, settings.ShutterUs / 1_000_000.0);
+        if (_state.ShutterIndex != shutterIndex)
+        {
+            _state.ShutterIndex = shutterIndex;
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.Mode))
+        {
+            int modeIndex = FindModeIndex(settings.Mode);
+            if (modeIndex >= 0 && _state.ResolutionIndex != modeIndex)
+            {
+                _state.ResolutionIndex = modeIndex;
+            }
+        }
+
+        _state.OutputDirectory = settings.OutputDir ?? string.Empty;
+    }
+
+    private static int FindClosestIndex(int[] values, int target)
+    {
+        int best = 0;
+        int bestDelta = int.MaxValue;
+        for (int i = 0; i < values.Length; i++)
+        {
+            int delta = Math.Abs(values[i] - target);
+            if (delta < bestDelta)
+            {
+                bestDelta = delta;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    private static int FindClosestIndex(double[] values, double target)
+    {
+        int best = 0;
+        double bestDelta = double.MaxValue;
+        for (int i = 0; i < values.Length; i++)
+        {
+            double delta = Math.Abs(values[i] - target);
+            if (delta < bestDelta)
+            {
+                bestDelta = delta;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    private static int FindModeIndex(string mode)
+    {
+        for (int i = 0; i < CameraPresets.ResolutionOptions.Length; i++)
+        {
+            if (string.Equals(CameraPresets.ResolutionOptions[i].Mode, mode, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static (string? SocketPath, string? Caps) ExtractPreviewInfo(string pipelineDescription)
+    {
+        string? socket = null;
+        string? caps = null;
+
+        var segments = pipelineDescription.Split('!');
+        foreach (var rawSegment in segments)
+        {
+            string segment = rawSegment.Trim();
+            if (segment.StartsWith("shmsrc", StringComparison.OrdinalIgnoreCase))
+            {
+                const string key = "socket-path";
+                int keyIndex = segment.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+                if (keyIndex >= 0)
+                {
+                    int quoteStart = segment.IndexOf('"', keyIndex);
+                    if (quoteStart >= 0 && quoteStart + 1 < segment.Length)
+                    {
+                        int quoteEnd = segment.IndexOf('"', quoteStart + 1);
+                        if (quoteEnd > quoteStart)
+                        {
+                            socket = segment.Substring(quoteStart + 1, quoteEnd - quoteStart - 1);
+                        }
+                    }
+                }
+            }
+            else if (segment.StartsWith("video/x-raw", StringComparison.OrdinalIgnoreCase))
+            {
+                caps = segment;
+            }
+        }
+
+        return (socket, caps);
     }
 
     private void RebindPaintable()
@@ -351,272 +578,75 @@ public sealed class CameraController : IDisposable
         }
     }
 
-    private void UpdateLiveHudFromSrc()
+    private void UpdateZoomInfrastructureFlag(bool newValue)
+    {
+        if (_supportsZoomCropping == newValue) return;
+        _supportsZoomCropping = newValue;
+        ZoomInfrastructureChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void UpdateHudFromCachedSettings()
     {
         if (_hud == null) return;
-        string live = "Live: —";
-        long? expUs = null;
-        double? ag = null;
-        if (_src != null)
+        if (_lastSettings == null)
         {
-            if (TryGetInt(_src, "exposure-time", out int l)) expUs = (long)l;
-            if (TryGetNumberAsDouble(_src, "analogue-gain", out double g)) ag = g;
+            _hud.SetText("Live: —\nLast: —");
+            return;
         }
 
-        if (expUs.HasValue || ag.HasValue)
-        {
-            var parts = new List<string>();
-            if (expUs.HasValue) parts.Add($"t={FormatShutter(expUs.Value)}");
-            if (ag.HasValue)
-            {
-                string isoApprox = _state.AutoExposureEnabled ? string.Empty : $" (ISO≈{Math.Round(ag.Value * 100)})";
-                parts.Add($"g={ag.Value:0.##}{isoApprox}");
-            }
-            if (parts.Count > 0) live = "Live: " + string.Join("  ", parts);
-        }
-
-        string last = "Last: —";
-        if (_state.LastExposureMicroseconds.HasValue || _state.LastIso.HasValue || _state.LastAnalogueGain.HasValue)
-        {
-            string s = _state.LastExposureMicroseconds.HasValue ? FormatShutter(_state.LastExposureMicroseconds.Value) : "?";
-            string isoStr = _state.LastIso.HasValue ? _state.LastIso.Value.ToString() :
-                            (_state.LastAnalogueGain.HasValue ? Math.Round(_state.LastAnalogueGain.Value * 100).ToString() : "?");
-            string agStr = _state.LastAnalogueGain.HasValue ? _state.LastAnalogueGain.Value.ToString("0.###") : "—";
-            last = $"Last: t={s}  ISO={isoStr}  AG={agStr}";
-        }
-
+        string live = FormatLiveHud(_lastSettings);
+        string last = FormatLastHud();
         _hud.SetText($"{live}\n{last}");
     }
 
-    private async Task CaptureDngSerializedAsync()
+    private void ProcessLastCapture(DaemonCaptureResult capture)
     {
-        if (_pipeline == null) return;
-        _pipeline.SetState(State.Null);
-        await Task.Delay(300).ConfigureAwait(false);
-
-        try
+        string token = $"{capture.Count}:{string.Join(',', capture.Frames)}";
+        if (token == _lastCaptureToken)
         {
-            string outDir = "/ssd/RAW";
-            Directory.CreateDirectory(outDir);
-            string ts = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
-
-            bool preferRpi = HasCmd("rpicam-still");
-            bool haveLibcam = HasCmd("libcamera-still");
-            if (!preferRpi && !haveLibcam)
-            {
-                throw new Exception("Neither rpicam-still nor libcamera-still found in PATH.");
-            }
-
-            var (iso, us) = _state.GetManualRequest();
-            double gain = Math.Max(1.0, iso / 100.0);
-            string manualArgs = _state.AutoExposureEnabled ? string.Empty : $" --shutter {us} --gain {gain:0.###} ";
-            var (capWidth, capHeight) = _state.GetSelectedStillResolution();
-
-            int exitCode = -1;
-            string? dngPathFinal = null;
-            string? metaPath = null;
-
-            const int maxAttempts = 8;
-            for (int attempt = 1; attempt <= maxAttempts; attempt++)
-            {
-                if (preferRpi)
-                {
-                    string baseName = Path.Combine(outDir, $"RPICAM_{ts}");
-                    string dngPath = baseName + ".dng";
-                    string cmd = $"rpicam-still -n --immediate -t 1 --raw -o \"{dngPath}\"{manualArgs} --width {capWidth} --height {capHeight}";
-                    exitCode = await RunShellAsync(cmd).ConfigureAwait(false);
-                    if (exitCode == 0 && File.Exists(dngPath))
-                    {
-                        dngPathFinal = dngPath;
-                        break;
-                    }
-                }
-                else if (haveLibcam)
-                {
-                    string basePath = Path.Combine(outDir, $"LIBCAM_{ts}");
-                    string jpgPath = basePath + ".jpg";
-                    string dngA = basePath + ".dng";
-                    string dngB = basePath + ".jpg.dng";
-                    metaPath = basePath + ".json";
-
-                    string cmd = $"libcamera-still -n --immediate -t 1 -o \"{jpgPath}\" --raw --width {capWidth} --height {capHeight}{manualArgs} --metadata \"{metaPath}\"";
-                    exitCode = await RunShellAsync(cmd).ConfigureAwait(false);
-                    if (exitCode == 0)
-                    {
-                        string produced = File.Exists(dngA) ? dngA : (File.Exists(dngB) ? dngB : string.Empty);
-                        if (string.IsNullOrEmpty(produced))
-                        {
-                            throw new Exception("libcamera-still did not produce a DNG.");
-                        }
-                        string finalDng = basePath + ".dng";
-                        if (!string.Equals(produced, finalDng, StringComparison.Ordinal))
-                        {
-                            File.Move(produced, finalDng, overwrite: true);
-                        }
-                        if (File.Exists(jpgPath)) File.Delete(jpgPath);
-                        dngPathFinal = finalDng;
-                        break;
-                    }
-                }
-
-                int backoffMs = 100 + attempt * 150;
-                Console.WriteLine($"Capture attempt {attempt} failed (exit {exitCode}). Retrying in {backoffMs} ms...");
-                await Task.Delay(backoffMs).ConfigureAwait(false);
-            }
-
-            if (exitCode != 0 || dngPathFinal is null)
-            {
-                throw new Exception($"Still tool failed after retries. Last exit code: {exitCode}.");
-            }
-
-            if (metaPath != null && File.Exists(metaPath))
-            {
-                ParseLibcameraJson(metaPath);
-            }
-
-            if (HasCmd("exiftool"))
-            {
-                await ParseExiftoolAsync(dngPathFinal).ConfigureAwait(false);
-            }
-
-            RebuildPreview();
+            return;
         }
-        finally
+
+        _lastCaptureToken = token;
+
+        if (_lastSettings == null)
         {
-            if (_pipeline != null)
-            {
-                _pipeline.SetState(State.Playing);
-                await Task.Delay(300).ConfigureAwait(false);
-                GLibFunctions.IdleAdd(0, () =>
-                {
-                    RebindPaintable();
-                    return false;
-                });
-            }
+            return;
         }
+
+        long? expUs = _lastSettings.AutoExposure ? null : (long?)Math.Round(_lastSettings.ShutterUs);
+        int? iso = _lastSettings.AutoExposure ? null : (int?)Math.Round(Math.Max(_lastSettings.AnalogueGain, 1.0) * 100.0);
+        double? ag = _lastSettings.AutoExposure ? null : _lastSettings.AnalogueGain;
+
+        _state.UpdateLastCapture(expUs, iso, ag);
     }
 
-    private void ParseLibcameraJson(string path)
+    private string FormatLiveHud(DaemonSettings settings)
     {
-        try
-        {
-            string json = File.ReadAllText(path);
-            using var doc = JsonDocument.Parse(json);
-            long? expUs = null;
-            double? ag = null;
-
-            void Scan(JsonElement e)
-            {
-                if (e.ValueKind == JsonValueKind.Object)
-                {
-                    foreach (var p in e.EnumerateObject())
-                    {
-                        string n = p.Name.ToLowerInvariant();
-                        if (n is "exposuretime" or "exposure_time" or "shutter")
-                        {
-                            if (p.Value.TryGetInt64(out long v64)) expUs = v64;
-                            else if (p.Value.TryGetDouble(out double vd)) expUs = (long)vd;
-                        }
-                        else if (n is "analoguegain" or "analoggain" or "ag")
-                        {
-                            if (p.Value.TryGetDouble(out double gd)) ag = gd;
-                        }
-                        else
-                        {
-                            Scan(p.Value);
-                        }
-                    }
-                }
-                else if (e.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var item in e.EnumerateArray())
-                    {
-                        Scan(item);
-                    }
-                }
-            }
-
-            Scan(doc.RootElement);
-            int? approxIso = ag.HasValue ? (int)Math.Round(ag.Value * 100.0) : null;
-            _state.UpdateLastCapture(expUs, approxIso, ag);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to parse libcamera JSON: {ex.Message}");
-        }
+        double shutterUs = settings.ShutterUs;
+        string shutter = shutterUs > 0 ? FormatShutter(shutterUs / 1_000_000.0) : "auto";
+        string gain = settings.AutoExposure ? "auto" : settings.AnalogueGain.ToString("0.##", CultureInfo.InvariantCulture);
+        return $"Live: t={shutter}  AG={gain}  FPS={settings.Fps:0.#}";
     }
 
-    private async Task ParseExiftoolAsync(string dngPath)
+    private string FormatLastHud()
     {
-        try
+        if (_state.LastExposureMicroseconds.HasValue || _state.LastIso.HasValue || _state.LastAnalogueGain.HasValue)
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "bash",
-                ArgumentList = { "-lc", $"exiftool -j -ExposureTime -ISO -AnalogGain \"{dngPath}\"" },
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            };
-            using var process = Process.Start(psi)!;
-            string stdout = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
-            string stderr = await process.StandardError.ReadToEndAsync().ConfigureAwait(false);
-            await process.WaitForExitAsync().ConfigureAwait(false);
-            if (process.ExitCode != 0)
-            {
-                Console.WriteLine($"exiftool exited with {process.ExitCode}: {stderr}");
-                return;
-            }
-
-            using var doc = JsonDocument.Parse(stdout);
-            if (doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0)
-            {
-                var obj = doc.RootElement[0];
-                long? expUs = null;
-                int? iso = null;
-                double? ag = null;
-
-                if (obj.TryGetProperty("ExposureTime", out var expProp))
-                {
-                    if (expProp.ValueKind == JsonValueKind.Number)
-                    {
-                        expUs = (long)Math.Round(expProp.GetDouble() * 1_000_000.0);
-                    }
-                    else if (expProp.ValueKind == JsonValueKind.String)
-                    {
-                        expUs = ParseExposureTimeToUs(expProp.GetString() ?? string.Empty);
-                    }
-                }
-
-                if (obj.TryGetProperty("ISO", out var isoProp))
-                {
-                    if (isoProp.ValueKind == JsonValueKind.Number) iso = isoProp.GetInt32();
-                    else if (isoProp.ValueKind == JsonValueKind.String && int.TryParse(isoProp.GetString(), out int isov)) iso = isov;
-                }
-
-                if (obj.TryGetProperty("AnalogGain", out var agProp))
-                {
-                    if (agProp.ValueKind == JsonValueKind.Number) ag = agProp.GetDouble();
-                    else if (agProp.ValueKind == JsonValueKind.String && double.TryParse(agProp.GetString(), out double agv)) ag = agv;
-                }
-
-                long? finalExp = expUs ?? _state.LastExposureMicroseconds;
-                int? finalIso = iso ?? _state.LastIso;
-                double? finalAg = ag ?? _state.LastAnalogueGain;
-                _state.UpdateLastCapture(finalExp, finalIso, finalAg);
-            }
+            string t = _state.LastExposureMicroseconds.HasValue ? FormatShutter(_state.LastExposureMicroseconds.Value / 1_000_000.0) : "auto";
+            string iso = _state.LastIso.HasValue ? _state.LastIso.Value.ToString(CultureInfo.InvariantCulture) : "auto";
+            string ag = _state.LastAnalogueGain.HasValue ? _state.LastAnalogueGain.Value.ToString("0.##", CultureInfo.InvariantCulture) : "auto";
+            return $"Last: t={t}  ISO={iso}  AG={ag}";
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to parse exiftool data: {ex.Message}");
-        }
+
+        return "Last: —";
     }
 
     private static string FormatShutter(double seconds)
     {
         if (seconds <= 0) seconds = 0.0001;
         double denom = 1.0 / seconds;
-        if (denom >= 1)
+        if (denom >= 1.0)
         {
             double rounded = Math.Round(denom);
             if (Math.Abs(denom - rounded) < 0.01)
@@ -633,16 +663,24 @@ public sealed class CameraController : IDisposable
         return $"{seconds * 1000:0.#} ms";
     }
 
-    public static string ShutterLabel(double seconds)
+    private static void SetPropString(Element? element, string name, string value)
     {
-        return FormatShutter(seconds);
+        if (element is null) return;
+        Value v = new();
+        v.Init(GObject.Type.String);
+        v.SetString(value);
+        element.SetProperty(name, v);
+        v.Unset();
     }
 
-    private static void SetPropInt(Element? element, string name, long value)
+    private static void SetPropBool(Element? element, string name, bool value)
     {
-        int clamped = value < int.MinValue ? int.MinValue :
-                      (value > int.MaxValue ? int.MaxValue : (int)value);
-        SetPropInt(element, name, clamped);
+        if (element is null) return;
+        Value v = new();
+        v.Init(GObject.Type.Boolean);
+        v.SetBoolean(value);
+        element.SetProperty(name, v);
+        v.Unset();
     }
 
     private static void SetPropInt(Element? element, string name, int value)
@@ -655,128 +693,8 @@ public sealed class CameraController : IDisposable
         v.Unset();
     }
 
-    private static void SetPropDouble(Element? element, string name, double value)
+    public static string ShutterLabel(double seconds)
     {
-        if (element is null) return;
-        Value v = new();
-        v.Init(GObject.Type.Double);
-        v.SetDouble(value);
-        element.SetProperty(name, v);
-        v.Unset();
-    }
-
-    private static bool TrySetInt(Element? element, string name, int value)
-    {
-        try
-        {
-            SetPropInt(element, name, value);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool TryGetInt(Element element, string name, out int value)
-    {
-        try
-        {
-            Value v = new();
-            element.GetProperty(name, v);
-            value = v.GetInt();
-            v.Unset();
-            return true;
-        }
-        catch
-        {
-            value = 0;
-            return false;
-        }
-    }
-
-    private static bool TryGetNumberAsDouble(Element element, string name, out double value)
-    {
-        try
-        {
-            Value v = new();
-            v.Init(GObject.Type.Double);
-            element.GetProperty(name, v);
-            value = v.GetDouble();
-            v.Unset();
-            return true;
-        }
-        catch
-        {
-            value = 0;
-            return false;
-        }
-    }
-
-    private static bool HasCmd(string name)
-    {
-        try
-        {
-            using var process = Process.Start(new ProcessStartInfo
-            {
-                FileName = "bash",
-                ArgumentList = { "-lc", $"command -v {name}" },
-                RedirectStandardOutput = true,
-                UseShellExecute = false
-            });
-            process!.WaitForExit();
-            return process.ExitCode == 0;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static async TaskInt RunShellAsync(string command)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "bash",
-            ArgumentList = { "-lc", command },
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false
-        };
-
-        using var process = Process.Start(psi)!;
-        string stdout = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
-        string stderr = await process.StandardError.ReadToEndAsync().ConfigureAwait(false);
-        await process.WaitForExitAsync().ConfigureAwait(false);
-
-        Console.WriteLine($"CMD: {command}\nEXIT: {process.ExitCode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
-        return process.ExitCode;
-    }
-
-    private static long? ParseExposureTimeToUs(string value)
-    {
-        try
-        {
-            string v = value.Trim().ToLowerInvariant();
-            if (v.Contains('/'))
-            {
-                var parts = v.Split('/');
-                if (parts.Length == 2 && double.TryParse(parts[0], out double num) && double.TryParse(parts[1], out double den) && Math.Abs(den) > double.Epsilon)
-                {
-                    return (long)Math.Round((num / den) * 1_000_000.0);
-                }
-            }
-
-            if (v.EndsWith("s")) v = v[..^1];
-            if (double.TryParse(v, out double seconds))
-            {
-                return (long)Math.Round(seconds * 1_000_000.0);
-            }
-        }
-        catch
-        {
-        }
-
-        return null;
+        return FormatShutter(seconds);
     }
 }
