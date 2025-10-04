@@ -190,6 +190,21 @@ public sealed class CameraController : IDisposable
         {
             await RefreshGalleryFromDiskAsync().ConfigureAwait(false);
         });
+
+        _dispatcher.Register<SetGalleryColorEnabledPayload>(AppActionId.SetGalleryColorEnabled, payload =>
+        {
+            _state.GalleryColorEnabled = payload.Enabled;
+        });
+
+        _dispatcher.Register<SetGalleryPagePayload>(AppActionId.SetGalleryPage, payload =>
+        {
+            _state.SetGalleryPage(payload.Page);
+        });
+
+        _dispatcher.Register<SetGalleryPageSizePayload>(AppActionId.SetGalleryPageSize, payload =>
+        {
+            _state.GalleryPageSize = payload.PageSize;
+        });
     }
 
     private async Task InitializeFromDaemonAsync()

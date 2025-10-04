@@ -5,5 +5,7 @@ public sealed record CameraSettingsView(
     Button CloseButton,
     ComboBoxText ResolutionCombo,
     Entry OutputDirectoryEntry,
-    Button OutputDirectoryApplyButton
+    Button OutputDirectoryApplyButton,
+    CheckButton GalleryColorToggle,
+    SpinButton GalleryPageSizeSpin
 );

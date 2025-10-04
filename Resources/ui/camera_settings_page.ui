@@ -4,6 +4,13 @@
 <interface>
   <!-- interface-name camera_settings_page.ui -->
   <requires lib="gtk" version="4.0"/>
+  <object class="GtkAdjustment" id="gallery_page_size_adjustment">
+    <property name="lower">1</property>
+    <property name="upper">48</property>
+    <property name="step-increment">1</property>
+    <property name="page-increment">4</property>
+    <property name="value">4</property>
+  </object>
   <object class="GtkBox" id="settings_root">
     <property name="css-classes">settings-page</property>
     <property name="hexpand">true</property>
@@ -35,71 +42,145 @@
         <property name="spacing">18</property>
         <property name="vexpand">true</property>
         <child>
-          <object class="GtkFrame" id="capture_settings_frame">
-            <property name="hexpand">true</property>
-            <property name="label">Capture</property>
-            <property name="label-xalign">0.0</property>
-            <child>
-              <object class="GtkBox" id="capture_settings_box">
-                <property name="margin-bottom">16</property>
-                <property name="margin-end">16</property>
-                <property name="margin-start">16</property>
-                <property name="margin-top">16</property>
-                <property name="orientation">vertical</property>
-                <property name="spacing">10</property>
-                <child>
-                  <object class="GtkLabel" id="settings_resolution_label">
-                    <property name="css-classes">settings-section-label</property>
-                    <property name="label">Still Resolution</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkComboBoxText" id="settings_resolution_combo">
-                    <property name="css-classes">settings-input</property>
-                  </object>
-                </child>
-              </object>
-            </child>
+          <object class="GtkStackSwitcher" id="settings_stack_switcher">
+            <property name="halign">start</property>
+            <property name="stack">settings_stack</property>
           </object>
         </child>
         <child>
-          <object class="GtkFrame" id="storage_settings_frame">
+          <object class="GtkStack" id="settings_stack">
             <property name="hexpand">true</property>
-            <property name="label">Storage</property>
-            <property name="label-xalign">0.0</property>
+            <property name="vexpand">true</property>
             <child>
-              <object class="GtkBox" id="storage_settings_box">
-                <property name="margin-bottom">16</property>
-                <property name="margin-end">16</property>
-                <property name="margin-start">16</property>
-                <property name="margin-top">16</property>
-                <property name="orientation">vertical</property>
-                <property name="spacing">10</property>
-                <child>
-                  <object class="GtkLabel" id="output_dir_label">
-                    <property name="css-classes">settings-section-label</property>
-                    <property name="label">Output Directory</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkBox" id="output_dir_row">
-                    <property name="orientation">horizontal</property>
-                    <property name="spacing">10</property>
+              <object class="GtkStackPage" id="settings_capture_page">
+                <property name="name">capture</property>
+                <property name="title">Capture</property>
+                <property name="child">
+                  <object class="GtkBox" id="settings_capture_box">
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">12</property>
+                    <property name="vexpand">true</property>
                     <child>
-                      <object class="GtkEntry" id="output_dir_entry">
-                        <property name="css-classes">settings-input</property>
+                      <object class="GtkFrame" id="capture_settings_frame">
                         <property name="hexpand">true</property>
-                        <property name="placeholder-text">/ssd/RAW</property>
+                        <property name="label">Exposure</property>
+                        <property name="label-xalign">0.0</property>
+                        <child>
+                          <object class="GtkBox" id="capture_settings_box">
+                            <property name="margin-bottom">16</property>
+                            <property name="margin-end">16</property>
+                            <property name="margin-start">16</property>
+                            <property name="margin-top">16</property>
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">10</property>
+                            <child>
+                              <object class="GtkLabel" id="settings_resolution_label">
+                                <property name="css-classes">settings-section-label</property>
+                                <property name="label">Still Resolution</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkComboBoxText" id="settings_resolution_combo">
+                                <property name="css-classes">settings-input</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkButton" id="output_dir_apply_button">
-                        <property name="css-classes">control-button</property>
-                        <property name="label">Apply</property>
+                      <object class="GtkFrame" id="storage_settings_frame">
+                        <property name="hexpand">true</property>
+                        <property name="label">Storage</property>
+                        <property name="label-xalign">0.0</property>
+                        <child>
+                          <object class="GtkBox" id="storage_settings_box">
+                            <property name="margin-bottom">16</property>
+                            <property name="margin-end">16</property>
+                            <property name="margin-start">16</property>
+                            <property name="margin-top">16</property>
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">10</property>
+                            <child>
+                              <object class="GtkLabel" id="output_dir_label">
+                                <property name="css-classes">settings-section-label</property>
+                                <property name="label">Output Directory</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="output_dir_row">
+                                <property name="orientation">horizontal</property>
+                                <property name="spacing">10</property>
+                                <child>
+                                  <object class="GtkEntry" id="output_dir_entry">
+                                    <property name="css-classes">settings-input</property>
+                                    <property name="hexpand">true</property>
+                                    <property name="placeholder-text">/ssd/RAW</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkButton" id="output_dir_apply_button">
+                                    <property name="css-classes">control-button</property>
+                                    <property name="label">Apply</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
                       </object>
                     </child>
                   </object>
-                </child>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkStackPage" id="settings_gallery_page">
+                <property name="name">gallery</property>
+                <property name="title">Gallery</property>
+                <property name="child">
+                  <object class="GtkBox" id="gallery_settings_box">
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">12</property>
+                    <property name="margin-top">12</property>
+                    <property name="margin-bottom">12</property>
+                    <property name="margin-start">12</property>
+                    <property name="margin-end">12</property>
+                    <child>
+                      <object class="GtkCheckButton" id="gallery_color_toggle">
+                        <property name="label">Enable color previews for RAW thumbnails</property>
+                        <property name="active">true</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkBox" id="gallery_page_size_row">
+                        <property name="orientation">horizontal</property>
+                        <property name="spacing">8</property>
+                        <child>
+                          <object class="GtkLabel" id="gallery_page_size_label">
+                            <property name="label">Items per page</property>
+                            <property name="halign">start</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSpinButton" id="gallery_page_size_spin">
+                            <property name="adjustment">gallery_page_size_adjustment</property>
+                            <property name="numeric">true</property>
+                            <property name="value">4</property>
+                            <property name="halign">start</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="gallery_color_hint">
+                        <property name="wrap">true</property>
+                        <property name="css-classes">gallery-settings-hint</property>
+                        <property name="label">Disabling color previews shows embedded thumbnails only and speeds up pagination.</property>
+                      </object>
+                    </child>
+                  </object>
+                </property>
               </object>
             </child>
           </object>

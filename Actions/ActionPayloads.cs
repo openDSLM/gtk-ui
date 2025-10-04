@@ -3,3 +3,6 @@ public readonly record struct SelectIndexPayload(int Index);
 public readonly record struct AdjustZoomPayload(double Zoom);
 public readonly record struct AdjustPanPayload(double X, double Y);
 public readonly record struct UpdateOutputDirectoryPayload(string Path);
+public readonly record struct SetGalleryColorEnabledPayload(bool Enabled);
+public readonly record struct SetGalleryPagePayload(int Page);
+public readonly record struct SetGalleryPageSizePayload(int PageSize);

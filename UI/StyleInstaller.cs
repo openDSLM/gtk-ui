@@ -170,6 +170,16 @@ flowboxchild.gallery-thumb picture.gallery-thumb-picture-missing {
   color: #ffb347;
   font-size: 12px;
 }
+
+label.gallery-page-label {
+  color: #f5f5f5;
+  font-weight: 600;
+}
+
+label.gallery-settings-hint {
+  color: rgba(255,255,255,0.78);
+  font-size: 12px;
+}
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);
             var display = Gdk.Display.GetDefault();

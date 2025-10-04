@@ -21,6 +21,9 @@ public sealed class GalleryView
     private readonly Widget _viewerPage;
     private readonly FlowBox _flowBox;
     private readonly Button _viewerBackButton;
+    private readonly Button _prevButton;
+    private readonly Button _nextButton;
+    private readonly Label _pageLabel;
     private readonly Picture _fullPicture;
     private readonly Label _fullLabel;
 
@@ -28,6 +31,7 @@ public sealed class GalleryView
     private readonly Dictionary<FlowBoxChild, string> _pathsByChild = new();
 
     private Texture? _currentFullTexture;
+    private bool _colorEnabled = true;
 
     private static readonly HashSet<string> RawExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -50,11 +54,14 @@ public sealed class GalleryView
         Stack stack,
         Widget emptyPage,
         Widget gridPage,
-        FlowBox flowBox,
-        Widget viewerPage,
-        Button viewerBackButton,
-        Picture fullPicture,
-        Label fullLabel)
+    FlowBox flowBox,
+    Widget viewerPage,
+    Button viewerBackButton,
+    Button prevButton,
+    Button nextButton,
+    Label pageLabel,
+    Picture fullPicture,
+    Label fullLabel)
     {
         Root = root ?? throw new ArgumentNullException(nameof(root));
         BackButton = backButton ?? throw new ArgumentNullException(nameof(backButton));
@@ -64,6 +71,9 @@ public sealed class GalleryView
         _flowBox = flowBox ?? throw new ArgumentNullException(nameof(flowBox));
         _viewerPage = viewerPage ?? throw new ArgumentNullException(nameof(viewerPage));
         _viewerBackButton = viewerBackButton ?? throw new ArgumentNullException(nameof(viewerBackButton));
+        _prevButton = prevButton ?? throw new ArgumentNullException(nameof(prevButton));
+        _nextButton = nextButton ?? throw new ArgumentNullException(nameof(nextButton));
+        _pageLabel = pageLabel ?? throw new ArgumentNullException(nameof(pageLabel));
         _fullPicture = fullPicture ?? throw new ArgumentNullException(nameof(fullPicture));
         _fullLabel = fullLabel ?? throw new ArgumentNullException(nameof(fullLabel));
 
@@ -76,6 +86,11 @@ public sealed class GalleryView
         };
 
         _viewerBackButton.OnClicked += (_, __) => ShowGrid();
+        _prevButton.OnClicked += (_, __) => PageRequested?.Invoke(this, -1);
+        _nextButton.OnClicked += (_, __) => PageRequested?.Invoke(this, +1);
+        _prevButton.Sensitive = false;
+        _nextButton.Sensitive = false;
+        _pageLabel.SetText("No photos");
     }
 
     public Widget Root { get; }
@@ -83,9 +98,11 @@ public sealed class GalleryView
     public Button BackButton { get; }
 
     public event EventHandler? BackRequested;
+    public event EventHandler<int>? PageRequested;
 
-    public void UpdateItems(IReadOnlyList<string> paths)
+    public void UpdateItems(IReadOnlyList<string> paths, bool colorEnabled)
     {
+        _colorEnabled = colorEnabled;
         ClearThumbnails();
 
         if (paths == null || paths.Count == 0)
@@ -96,7 +113,7 @@ public sealed class GalleryView
 
         foreach (var path in paths)
         {
-            var entry = CreateThumbnail(path);
+            var entry = CreateThumbnail(path, colorEnabled);
             if (entry == null)
             {
                 continue;
@@ -106,6 +123,8 @@ public sealed class GalleryView
             _pathsByChild[entry.Child] = entry.Path;
             _flowBox.Append(entry.Child);
         }
+
+        _flowBox.UnselectAll();
 
         if (_thumbnails.Count == 0)
         {
@@ -147,7 +166,7 @@ public sealed class GalleryView
 
     private void ShowViewer(string path)
     {
-        var texture = TryLoadTexture(path, out var errorMessage, FullMaxDimension, FullMaxDimension);
+        var texture = TryLoadTexture(path, out var errorMessage, true, FullMaxDimension, FullMaxDimension);
         if (texture != null)
         {
             SetFullTexture(texture);
@@ -196,7 +215,7 @@ public sealed class GalleryView
         _pathsByChild.Clear();
     }
 
-    private ThumbnailEntry? CreateThumbnail(string path)
+    private ThumbnailEntry? CreateThumbnail(string path, bool colorEnabled)
     {
         string displayPath = path ?? string.Empty;
         string captionText = Path.GetFileName(displayPath);
@@ -220,7 +239,7 @@ public sealed class GalleryView
         picture.AddCssClass("gallery-thumb-picture");
 
         string? error;
-        Texture? texture = TryLoadTexture(displayPath, out error, ThumbnailWidth, ThumbnailHeight);
+        Texture? texture = TryLoadTexture(displayPath, out error, colorEnabled, ThumbnailWidth, ThumbnailHeight);
         if (texture != null)
         {
             picture.SetPaintable(texture);
@@ -257,7 +276,22 @@ public sealed class GalleryView
         return new ThumbnailEntry(displayPath, child, picture, texture);
     }
 
-    private static Texture? TryLoadTexture(string path, out string? error, int? maxWidth = null, int? maxHeight = null)
+    public void UpdatePagination(int currentPage, int totalPages)
+    {
+        if (totalPages <= 0)
+        {
+            _pageLabel.SetText("No photos");
+            _prevButton.Sensitive = false;
+            _nextButton.Sensitive = false;
+            return;
+        }
+
+        _pageLabel.SetText($"Page {currentPage + 1} / {totalPages}");
+        _prevButton.Sensitive = currentPage > 0;
+        _nextButton.Sensitive = currentPage < totalPages - 1;
+    }
+
+    private static Texture? TryLoadTexture(string path, out string? error, bool colorEnabled, int? maxWidth = null, int? maxHeight = null)
     {
         error = null;
 
@@ -283,16 +317,28 @@ public sealed class GalleryView
 
         if (IsRawFile(path))
         {
-            var magickTexture = TryLoadWithMagick(path, effectiveMaxWidth, effectiveMaxHeight);
-            if (magickTexture != null)
+            if (colorEnabled)
             {
-                return magickTexture;
+                var magickTexture = TryLoadWithMagick(path, true, effectiveMaxWidth, effectiveMaxHeight);
+                if (magickTexture != null)
+                {
+                    return magickTexture;
+                }
             }
 
             var previewTexture = TryLoadEmbeddedPreviewTexture(path, effectiveMaxWidth, effectiveMaxHeight);
             if (previewTexture != null)
             {
                 return previewTexture;
+            }
+
+            if (!colorEnabled)
+            {
+                var grayscaleTexture = TryLoadWithMagick(path, false, effectiveMaxWidth, effectiveMaxHeight);
+                if (grayscaleTexture != null)
+                {
+                    return grayscaleTexture;
+                }
             }
 
             error = "Preview unavailable";
@@ -472,13 +518,17 @@ public sealed class GalleryView
         }
     }
 
-    private static Texture? TryLoadWithMagick(string path, int? maxWidth, int? maxHeight)
+    private static Texture? TryLoadWithMagick(string path, bool color, int? maxWidth, int? maxHeight)
     {
         try
         {
             using var image = new MagickImage(path);
             image.AutoOrient();
-            image.ColorSpace = ColorSpace.sRGB;
+            image.ColorSpace = color ? ColorSpace.sRGB : ColorSpace.Gray;
+            if (!color)
+            {
+                image.ColorType = ColorType.Grayscale;
+            }
 
             double scale = 1.0;
             if (maxWidth.HasValue && maxWidth.Value > 0 && image.Width > maxWidth.Value)
@@ -505,6 +555,11 @@ public sealed class GalleryView
             try
             {
                 image.Format = MagickFormat.Jpeg;
+                if (!color)
+                {
+                    image.SetArtifact("jpeg:dct-method", "fast");
+                    image.Quality = 60;
+                }
                 image.Write(tempFile);
                 return TryLoadStandardImage(tempFile, maxWidth, maxHeight);
             }

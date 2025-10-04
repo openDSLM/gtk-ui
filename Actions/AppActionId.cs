@@ -11,5 +11,8 @@ public enum AppActionId
     RefreshPreview,
     RefreshHud,
     UpdateOutputDirectory,
-    LoadGallery
+    LoadGallery,
+    SetGalleryColorEnabled,
+    SetGalleryPage,
+    SetGalleryPageSize
 }

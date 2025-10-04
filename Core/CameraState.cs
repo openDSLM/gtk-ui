@@ -17,6 +17,9 @@ public sealed class CameraState
     private string _outputDirectory = "/ssd/RAW";
     private readonly List<string> _recentCaptures = new();
     private readonly ReadOnlyCollection<string> _recentCaptureView;
+    private bool _galleryColorEnabled = true;
+    private int _galleryPageIndex;
+    private int _galleryPageSize = 4;
 
     public CameraState()
     {
@@ -33,6 +36,9 @@ public sealed class CameraState
 
     public event EventHandler? LastCaptureChanged;
     public event EventHandler? RecentCapturesChanged;
+    public event EventHandler<bool>? GalleryColorEnabledChanged;
+    public event EventHandler<int>? GalleryPageIndexChanged;
+    public event EventHandler<int>? GalleryPageSizeChanged;
 
     public long? LastExposureMicroseconds { get; private set; }
     public int? LastIso { get; private set; }
@@ -90,6 +96,7 @@ public sealed class CameraState
 
         if (changed)
         {
+            EnsureGalleryPageBounds();
             RecentCapturesChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -122,6 +129,7 @@ public sealed class CameraState
             }
         }
 
+        EnsureGalleryPageBounds();
         RecentCapturesChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -133,6 +141,7 @@ public sealed class CameraState
         }
 
         _recentCaptures.Clear();
+        EnsureGalleryPageBounds();
         RecentCapturesChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -248,6 +257,81 @@ public sealed class CameraState
         LastCaptureChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public bool GalleryColorEnabled
+    {
+        get => _galleryColorEnabled;
+        set
+        {
+            if (_galleryColorEnabled == value) return;
+            _galleryColorEnabled = value;
+            GalleryColorEnabledChanged?.Invoke(this, value);
+        }
+    }
+
+    public int GalleryPageIndex => _galleryPageIndex;
+
+    public void SetGalleryPage(int page)
+    {
+        int clamped = ClampPageIndex(page);
+        if (_galleryPageIndex == clamped) return;
+        _galleryPageIndex = clamped;
+        GalleryPageIndexChanged?.Invoke(this, clamped);
+    }
+
+    public int GetGalleryPageCount()
+    {
+        if (_recentCaptures.Count == 0) return 0;
+        return (_recentCaptures.Count + _galleryPageSize - 1) / _galleryPageSize;
+    }
+
+    public IReadOnlyList<string> GetGalleryPageItems()
+    {
+        if (_recentCaptures.Count == 0)
+        {
+            if (_galleryPageIndex != 0)
+            {
+                _galleryPageIndex = 0;
+                GalleryPageIndexChanged?.Invoke(this, 0);
+            }
+            return Array.Empty<string>();
+        }
+
+        int totalPages = GetGalleryPageCount();
+        int clampedIndex = Math.Clamp(_galleryPageIndex, 0, Math.Max(0, totalPages - 1));
+        if (clampedIndex != _galleryPageIndex)
+        {
+            _galleryPageIndex = clampedIndex;
+            GalleryPageIndexChanged?.Invoke(this, clampedIndex);
+        }
+
+        int start = clampedIndex * _galleryPageSize;
+        if (start >= _recentCaptures.Count)
+        {
+            start = Math.Max(0, _recentCaptures.Count - _galleryPageSize);
+        }
+        int count = Math.Clamp(_recentCaptures.Count - start, 0, _galleryPageSize);
+        if (count <= 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return _recentCaptures.GetRange(start, count);
+    }
+
+    public int GalleryPageSize
+    {
+        get => _galleryPageSize;
+        set
+        {
+            int clamped = Math.Clamp(value, 1, 48);
+            if (_galleryPageSize == clamped) return;
+            _galleryPageSize = clamped;
+            EnsureGalleryPageBounds();
+            GalleryPageSizeChanged?.Invoke(this, clamped);
+            RecentCapturesChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
     private static string? NormalizeCapturePath(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -265,5 +349,26 @@ public sealed class CameraState
         {
             return trimmed;
         }
+    }
+
+    private void EnsureGalleryPageBounds()
+    {
+        int clamped = ClampPageIndex(_galleryPageIndex);
+        if (_galleryPageIndex != clamped)
+        {
+            _galleryPageIndex = clamped;
+            GalleryPageIndexChanged?.Invoke(this, clamped);
+        }
+    }
+
+    private int ClampPageIndex(int requested)
+    {
+        int totalPages = GetGalleryPageCount();
+        if (totalPages == 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp(requested, 0, totalPages - 1);
     }
 }

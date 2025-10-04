@@ -55,13 +55,17 @@ public sealed class MainWindowBuilder
         var settingsResolutionCombo = Require<ComboBoxText>(settingsBuilder, "settings_resolution_combo");
         var outputDirEntry = Require<Entry>(settingsBuilder, "output_dir_entry");
         var outputDirApplyButton = Require<Button>(settingsBuilder, "output_dir_apply_button");
+        var galleryColorToggle = Require<CheckButton>(settingsBuilder, "gallery_color_toggle");
+        var galleryPageSizeSpin = Require<SpinButton>(settingsBuilder, "gallery_page_size_spin");
 
         var settingsView = new CameraSettingsView(
             settingsRoot,
             settingsCloseButton,
             settingsResolutionCombo,
             outputDirEntry,
-            outputDirApplyButton);
+            outputDirApplyButton,
+            galleryColorToggle,
+            galleryPageSizeSpin);
 
         using var galleryBuilder = Builder.NewFromFile(ResolveLayoutPath(GalleryLayoutFileName));
         var galleryRoot = Require<Box>(galleryBuilder, "gallery_root");
@@ -72,6 +76,9 @@ public sealed class MainWindowBuilder
         var galleryFlow = Require<FlowBox>(galleryBuilder, "gallery_flow");
         var galleryViewerBox = Require<Box>(galleryBuilder, "gallery_viewer_box");
         var galleryViewerBackButton = Require<Button>(galleryBuilder, "gallery_viewer_back_button");
+        var galleryPrevButton = Require<Button>(galleryBuilder, "gallery_prev_button");
+        var galleryNextButton = Require<Button>(galleryBuilder, "gallery_next_button");
+        var galleryPageLabel = Require<Label>(galleryBuilder, "gallery_page_label");
         var galleryFullPicture = Require<Picture>(galleryBuilder, "gallery_full_picture");
         var galleryFullLabel = Require<Label>(galleryBuilder, "gallery_full_label");
 
@@ -84,6 +91,9 @@ public sealed class MainWindowBuilder
             galleryFlow,
             galleryViewerBox,
             galleryViewerBackButton,
+            galleryPrevButton,
+            galleryNextButton,
+            galleryPageLabel,
             galleryFullPicture,
             galleryFullLabel);
 
@@ -94,6 +104,7 @@ public sealed class MainWindowBuilder
         ConfigureCaptureButton(captureButton);
         ConfigureResolutionCombo(settingsView.ResolutionCombo);
         ConfigureSettingsPanel(settingsView);
+        ConfigureGallerySettings(settingsView);
         ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
 
         StyleInstaller.TryInstall();
@@ -310,6 +321,45 @@ public sealed class MainWindowBuilder
         settingsView.OutputDirectoryApplyButton.OnClicked += async (_, __) => await CommitAsync();
     }
 
+    private void ConfigureGallerySettings(CameraSettingsView settingsView)
+    {
+        bool suppressToggle = false;
+        bool suppressPageSize = false;
+
+        settingsView.GalleryColorToggle.Active = _state.GalleryColorEnabled;
+        settingsView.GalleryPageSizeSpin.Adjustment.Lower = 1;
+        settingsView.GalleryPageSizeSpin.Adjustment.Upper = 48;
+        settingsView.GalleryPageSizeSpin.Value = _state.GalleryPageSize;
+
+        settingsView.GalleryColorToggle.OnToggled += (_, __) =>
+        {
+            if (suppressToggle) return;
+            bool enabled = settingsView.GalleryColorToggle.Active;
+            _dispatcher.FireAndForget(AppActionId.SetGalleryColorEnabled, new SetGalleryColorEnabledPayload(enabled));
+        };
+
+        settingsView.GalleryPageSizeSpin.OnValueChanged += (_, __) =>
+        {
+            if (suppressPageSize) return;
+            int requested = (int)Math.Max(1, Math.Round(settingsView.GalleryPageSizeSpin.Value));
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(requested));
+        };
+
+        _state.GalleryColorEnabledChanged += (_, enabled) =>
+        {
+            suppressToggle = true;
+            settingsView.GalleryColorToggle.Active = enabled;
+            suppressToggle = false;
+        };
+
+        _state.GalleryPageSizeChanged += (_, size) =>
+        {
+            suppressPageSize = true;
+            settingsView.GalleryPageSizeSpin.Value = size;
+            suppressPageSize = false;
+        };
+    }
+
     private void ConfigureNavigation(
         Stack stack,
         Widget livePage,
@@ -354,6 +404,7 @@ public sealed class MainWindowBuilder
         galleryButton.OnClicked += (_, __) =>
         {
             if (!galleryButton.Sensitive) return;
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPage, new SetGalleryPagePayload(0));
             _dispatcher.FireAndForget(AppActionId.LoadGallery);
             stack.SetVisibleChild(galleryPage);
             galleryButton.Sensitive = false;
@@ -488,16 +539,37 @@ public sealed class MainWindowBuilder
             throw new ArgumentNullException(nameof(galleryView));
         }
 
-        void Update()
+        bool galleryUpdating = false;
+
+        void RefreshGallery()
         {
-            galleryView.UpdateItems(_state.RecentCaptures);
+            if (galleryUpdating) return;
+            galleryUpdating = true;
+            try
+            {
+                var items = _state.GetGalleryPageItems();
+                galleryView.UpdateItems(items, _state.GalleryColorEnabled);
+                int totalPages = _state.GetGalleryPageCount();
+                int currentPage = totalPages == 0 ? 0 : Math.Clamp(_state.GalleryPageIndex, 0, Math.Max(0, totalPages - 1));
+                galleryView.UpdatePagination(currentPage, totalPages);
+            }
+            finally
+            {
+                galleryUpdating = false;
+            }
         }
 
-        Update();
+        RefreshGallery();
 
-        _state.RecentCapturesChanged += (_, __) =>
+        _state.RecentCapturesChanged += (_, __) => RefreshGallery();
+        _state.GalleryPageIndexChanged += (_, __) => RefreshGallery();
+        _state.GalleryColorEnabledChanged += (_, __) => RefreshGallery();
+        _state.GalleryPageSizeChanged += (_, __) => RefreshGallery();
+
+        galleryView.PageRequested += (_, delta) =>
         {
-            Update();
+            int requested = _state.GalleryPageIndex + delta;
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPage, new SetGalleryPagePayload(requested));
         };
 
         _state.OutputDirectoryChanged += (_, __) =>
