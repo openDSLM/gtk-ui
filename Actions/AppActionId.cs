@@ -14,5 +14,12 @@ public enum AppActionId
     LoadGallery,
     SetGalleryColorEnabled,
     SetGalleryPage,
-    SetGalleryPageSize
+    SetGalleryPageSize,
+    SetCaptureMode,
+    UpdateVideoSettings,
+    StartVideoRecording,
+    StopVideoRecording,
+    UpdateTimelapseSettings,
+    StartTimelapse,
+    StopTimelapse
 }

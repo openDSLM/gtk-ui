@@ -141,7 +141,6 @@ flowboxchild.gallery-thumb {
   padding: 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.45);
   min-width: 240px;
-  max-width: 240px;
 }
 
 flowboxchild.gallery-thumb picture.gallery-thumb-picture {
@@ -149,16 +148,12 @@ flowboxchild.gallery-thumb picture.gallery-thumb-picture {
   border-radius: 12px;
   min-width: 240px;
   min-height: 160px;
-  max-width: 240px;
-  max-height: 160px;
 }
 
 flowboxchild.gallery-thumb picture.gallery-thumb-picture-missing {
   background-color: rgba(64, 64, 64, 0.65);
   min-width: 240px;
   min-height: 160px;
-  max-width: 240px;
-  max-height: 160px;
 }
 
 .gallery-caption {
@@ -184,6 +179,13 @@ label.gallery-settings-hint {
 stackswitcher.settings-tab-switcher button,
 stackswitcher.settings-tab-switcher button label {
   color: #000000;
+  background-color: rgba(255,255,255,0.92);
+}
+
+stackswitcher.settings-tab-switcher button:checked,
+stackswitcher.settings-tab-switcher button:checked label {
+  color: #000000;
+  background-color: rgba(238,238,238,0.92);
 }
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);

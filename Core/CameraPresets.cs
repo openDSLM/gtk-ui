@@ -9,6 +9,19 @@ public static class CameraPresets
 
     public static readonly int[] IsoSteps = { 100, 200, 400, 800, 1600, 3200, 6400, 12800 };
 
+    public static readonly double[] VideoFpsOptions =
+    {
+        23.976,
+        24.0,
+        25.0,
+        29.97,
+        30.0,
+        48.0,
+        50.0,
+        59.94,
+        60.0
+    };
+
     public static readonly ResolutionOption[] ResolutionOptions =
     {
         new("1928 x 1090 (2K crop)", 1928, 1090, "1928:1090:12:P"),

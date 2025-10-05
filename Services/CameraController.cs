@@ -36,6 +36,10 @@ public sealed class CameraController : IDisposable
     private DaemonSettings? _lastSettings;
     private string? _lastCaptureToken;
     private bool _galleryRefreshInFlight;
+    private uint _videoTimerId;
+    private uint _timelapseTimerId;
+    private int _timelapseFramesCaptured;
+    private bool _sequenceCaptureInFlight;
 
     private static readonly HashSet<string> GalleryFileExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -189,6 +193,48 @@ public sealed class CameraController : IDisposable
         _dispatcher.Register(AppActionId.LoadGallery, async () =>
         {
             await RefreshGalleryFromDiskAsync().ConfigureAwait(false);
+        });
+
+        _dispatcher.Register<SetCaptureModePayload>(AppActionId.SetCaptureMode, payload =>
+        {
+            _state.CaptureMode = payload.Mode;
+            return Task.CompletedTask;
+        });
+
+        _dispatcher.Register<UpdateVideoSettingsPayload>(AppActionId.UpdateVideoSettings, payload =>
+        {
+            _state.VideoFps = payload.Fps;
+            _state.VideoShutterAngle = payload.ShutterAngleDegrees;
+            return Task.CompletedTask;
+        });
+
+        _dispatcher.Register(AppActionId.StartVideoRecording, async () =>
+        {
+            await StartVideoRecordingAsync().ConfigureAwait(false);
+        });
+
+        _dispatcher.Register(AppActionId.StopVideoRecording, () =>
+        {
+            StopVideoRecording();
+            return Task.CompletedTask;
+        });
+
+        _dispatcher.Register<UpdateTimelapseSettingsPayload>(AppActionId.UpdateTimelapseSettings, payload =>
+        {
+            _state.TimelapseIntervalSeconds = payload.IntervalSeconds;
+            _state.TimelapseFrameCount = payload.FrameCount;
+            return Task.CompletedTask;
+        });
+
+        _dispatcher.Register(AppActionId.StartTimelapse, async () =>
+        {
+            await StartTimelapseAsync().ConfigureAwait(false);
+        });
+
+        _dispatcher.Register(AppActionId.StopTimelapse, () =>
+        {
+            StopTimelapse();
+            return Task.CompletedTask;
         });
 
         _dispatcher.Register<SetGalleryColorEnabledPayload>(AppActionId.SetGalleryColorEnabled, payload =>
@@ -443,8 +489,12 @@ public sealed class CameraController : IDisposable
             var result = await _daemonClient.CaptureStillAsync().ConfigureAwait(false);
             if (result != null && result.Count > 0)
             {
-                Console.WriteLine($"Captured {result.Count} frame(s): {string.Join(", ", result.Frames)}");
-                ProcessLastCapture(result);
+                var storedFrames = ProcessLastCapture(result);
+                if (storedFrames.Count > 0)
+                {
+                    Console.WriteLine($"Captured {storedFrames.Count} frame(s): {string.Join(", ", storedFrames)}");
+                }
+
                 UpdateHudFromCachedSettings();
             }
             await RefreshDaemonStatusAsync().ConfigureAwait(false);
@@ -689,7 +739,7 @@ public sealed class CameraController : IDisposable
 
         try
         {
-            var ordered = Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+            var ordered = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
                 .Where(IsSupportedGalleryFile)
                 .Select(path =>
                 {
@@ -765,20 +815,25 @@ public sealed class CameraController : IDisposable
         return GalleryFileExtensions.Contains(extension);
     }
 
-    private void ProcessLastCapture(DaemonCaptureResult capture)
+    private IReadOnlyList<string> ProcessLastCapture(DaemonCaptureResult capture)
     {
         string token = $"{capture.Count}:{string.Join(',', capture.Frames)}";
         if (token == _lastCaptureToken)
         {
-            return;
+            return System.Array.Empty<string>();
         }
 
         _lastCaptureToken = token;
 
         var resolvedFrames = ResolveCapturePaths(capture.Frames);
+        resolvedFrames = HandleSequenceFrames(resolvedFrames);
+
+        IReadOnlyList<string> snapshot = System.Array.Empty<string>();
+
         if (resolvedFrames.Count > 0)
         {
             var frameSnapshot = resolvedFrames.ToArray();
+            snapshot = frameSnapshot;
             GLibFunctions.IdleAdd(0, () =>
             {
                 _state.AppendRecentCaptures(frameSnapshot);
@@ -788,7 +843,7 @@ public sealed class CameraController : IDisposable
 
         if (_lastSettings == null)
         {
-            return;
+            return snapshot;
         }
 
         long? expUs = _lastSettings.AutoExposure ? null : (long?)Math.Round(_lastSettings.ShutterUs);
@@ -796,6 +851,257 @@ public sealed class CameraController : IDisposable
         double? ag = _lastSettings.AutoExposure ? null : _lastSettings.AnalogueGain;
 
         _state.UpdateLastCapture(expUs, iso, ag);
+
+        return snapshot;
+    }
+
+    private async Task StartVideoRecordingAsync()
+    {
+        if (_state.IsVideoRecording)
+        {
+            return;
+        }
+
+        string sequencePath = CreateSequenceDirectory("clip");
+        _state.BeginVideoRecording(sequencePath);
+        Console.WriteLine($"[Video] Recording started at {sequencePath}");
+        TriggerSequenceCapture();
+        ScheduleVideoCaptureTimer();
+        await Task.CompletedTask;
+    }
+
+    private void StopVideoRecording()
+    {
+        if (!_state.IsVideoRecording)
+        {
+            return;
+        }
+
+        Console.WriteLine("[Video] Recording stopped");
+        CancelVideoTimer();
+        _state.EndVideoRecording();
+    }
+
+    private async Task StartTimelapseAsync()
+    {
+        if (_state.TimelapseActive)
+        {
+            return;
+        }
+
+        string sequencePath = CreateSequenceDirectory("timelapse");
+        _state.BeginTimelapse(sequencePath);
+        _timelapseFramesCaptured = 0;
+        Console.WriteLine($"[Timelapse] Sequence started at {sequencePath} (interval {_state.TimelapseIntervalSeconds:0.##}s, frames {_state.TimelapseFrameCount})");
+        TriggerSequenceCapture();
+        ScheduleTimelapseTimer();
+        await Task.CompletedTask;
+    }
+
+    private void StopTimelapse()
+    {
+        if (!_state.TimelapseActive)
+        {
+            return;
+        }
+
+        Console.WriteLine("[Timelapse] Sequence stopped");
+        CancelTimelapseTimer();
+        _timelapseFramesCaptured = 0;
+        _state.EndTimelapse();
+    }
+
+    private string CreateSequenceDirectory(string prefix)
+    {
+        string baseDir = string.IsNullOrWhiteSpace(_state.OutputDirectory)
+            ? Environment.CurrentDirectory
+            : _state.OutputDirectory;
+        string timestamp = System.DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+        string folderName = $"{timestamp}_{prefix}";
+        string path = Path.Combine(baseDir, folderName);
+        try
+        {
+            Directory.CreateDirectory(path);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to create sequence directory '{path}': {ex.Message}");
+        }
+        return path;
+    }
+
+    private void TriggerSequenceCapture()
+    {
+        if (_sequenceCaptureInFlight)
+        {
+            return;
+        }
+
+        _sequenceCaptureInFlight = true;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await CaptureStillViaDaemonAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Sequence capture failed: {ex.Message}");
+            }
+            finally
+            {
+                _sequenceCaptureInFlight = false;
+            }
+        });
+    }
+
+    private void ScheduleVideoCaptureTimer()
+    {
+        CancelVideoTimer();
+        double fps = Math.Clamp(_state.VideoFps, 1.0, 240.0);
+        uint interval = (uint)Math.Max(20, Math.Round(1000.0 / fps));
+        _videoTimerId = GLibFunctions.TimeoutAdd(0, interval, () =>
+        {
+            if (!_state.IsVideoRecording)
+            {
+                return false;
+            }
+
+            TriggerSequenceCapture();
+            return _state.IsVideoRecording;
+        });
+    }
+
+    private void ScheduleTimelapseTimer()
+    {
+        CancelTimelapseTimer();
+        double intervalSeconds = Math.Clamp(_state.TimelapseIntervalSeconds, 0.5, 3600.0);
+        uint interval = (uint)Math.Max(100, Math.Round(intervalSeconds * 1000.0));
+        _timelapseTimerId = GLibFunctions.TimeoutAdd(0, interval, () =>
+        {
+            if (!_state.TimelapseActive)
+            {
+                return false;
+            }
+
+            TriggerSequenceCapture();
+            return _state.TimelapseActive;
+        });
+    }
+
+    private void CancelVideoTimer()
+    {
+        if (_videoTimerId != 0)
+        {
+            GLibFunctions.SourceRemove(_videoTimerId);
+            _videoTimerId = 0;
+        }
+    }
+
+    private void CancelTimelapseTimer()
+    {
+        if (_timelapseTimerId != 0)
+        {
+            GLibFunctions.SourceRemove(_timelapseTimerId);
+            _timelapseTimerId = 0;
+        }
+    }
+
+    private List<string> HandleSequenceFrames(List<string> resolvedFrames)
+    {
+        if (resolvedFrames.Count == 0)
+        {
+            return resolvedFrames;
+        }
+
+        string? targetDirectory = null;
+        bool isVideo = false;
+        if (_state.IsVideoRecording && !string.IsNullOrEmpty(_state.ActiveVideoSequencePath))
+        {
+            targetDirectory = _state.ActiveVideoSequencePath;
+            isVideo = true;
+        }
+        else if (_state.TimelapseActive && !string.IsNullOrEmpty(_state.ActiveTimelapsePath))
+        {
+            targetDirectory = _state.ActiveTimelapsePath;
+        }
+
+        if (string.IsNullOrEmpty(targetDirectory))
+        {
+            return resolvedFrames;
+        }
+
+        var updated = new List<string>(resolvedFrames.Count);
+        foreach (var framePath in resolvedFrames)
+        {
+            string moved = MoveFileToSequence(framePath, targetDirectory!);
+            updated.Add(moved);
+        }
+
+        if (!isVideo && _state.TimelapseActive && updated.Count > 0)
+        {
+            _timelapseFramesCaptured += updated.Count;
+            if (_timelapseFramesCaptured >= _state.TimelapseFrameCount)
+            {
+                GLibFunctions.IdleAdd(0, () =>
+                {
+                    StopTimelapse();
+                    return false;
+                });
+            }
+        }
+
+        return updated;
+    }
+
+    private string MoveFileToSequence(string sourcePath, string targetDirectory)
+    {
+        try
+        {
+            if (!File.Exists(sourcePath))
+            {
+                return sourcePath;
+            }
+
+            Directory.CreateDirectory(targetDirectory);
+
+            string fileName = Path.GetFileName(sourcePath);
+            if (string.IsNullOrEmpty(fileName))
+            {
+                fileName = Guid.NewGuid().ToString("N") + Path.GetExtension(sourcePath);
+            }
+
+            string destination = Path.Combine(targetDirectory, fileName);
+            if (File.Exists(destination))
+            {
+                string name = Path.GetFileNameWithoutExtension(fileName);
+                string ext = Path.GetExtension(fileName);
+                int counter = 1;
+                do
+                {
+                    destination = Path.Combine(targetDirectory, $"{name}_{counter}{ext}");
+                    counter++;
+                }
+                while (File.Exists(destination));
+            }
+
+            try
+            {
+                File.Move(sourcePath, destination);
+            }
+            catch (IOException)
+            {
+                File.Copy(sourcePath, destination, overwrite: true);
+                File.Delete(sourcePath);
+            }
+
+            return destination;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to move '{sourcePath}' into '{targetDirectory}': {ex.Message}");
+            return sourcePath;
+        }
     }
 
     private List<string> ResolveCapturePaths(IReadOnlyList<string> frames)

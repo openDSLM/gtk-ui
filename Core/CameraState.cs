@@ -20,6 +20,15 @@ public sealed class CameraState
     private bool _galleryColorEnabled = true;
     private int _galleryPageIndex;
     private int _galleryPageSize = 4;
+    private CaptureMode _captureMode = CaptureMode.Photo;
+    private double _videoFps = 24.0;
+    private double _videoShutterAngle = 180.0;
+    private bool _videoRecording;
+    private string? _activeVideoSequencePath;
+    private double _timelapseIntervalSeconds = 5.0;
+    private int _timelapseFrameCount = 120;
+    private bool _timelapseActive;
+    private string? _activeTimelapsePath;
     private readonly UserPreferences _preferences;
 
     public CameraState()
@@ -28,6 +37,11 @@ public sealed class CameraState
         _preferences = UserPreferences.Instance;
         _galleryColorEnabled = _preferences.GalleryColorEnabled;
         _galleryPageSize = _preferences.GalleryPageSize;
+        _captureMode = _preferences.CaptureMode;
+        _videoFps = _preferences.VideoFps;
+        _videoShutterAngle = _preferences.VideoShutterAngle;
+        _timelapseIntervalSeconds = _preferences.TimelapseIntervalSeconds;
+        _timelapseFrameCount = _preferences.TimelapseFrameCount;
         EnsureGalleryPageBounds();
     }
 
@@ -44,6 +58,11 @@ public sealed class CameraState
     public event EventHandler<bool>? GalleryColorEnabledChanged;
     public event EventHandler<int>? GalleryPageIndexChanged;
     public event EventHandler<int>? GalleryPageSizeChanged;
+    public event EventHandler<CaptureMode>? CaptureModeChanged;
+    public event EventHandler? VideoSettingsChanged;
+    public event EventHandler<bool>? VideoRecordingChanged;
+    public event EventHandler? TimelapseSettingsChanged;
+    public event EventHandler<bool>? TimelapseActiveChanged;
 
     public long? LastExposureMicroseconds { get; private set; }
     public int? LastIso { get; private set; }
@@ -274,6 +293,19 @@ public sealed class CameraState
         }
     }
 
+    public CaptureMode CaptureMode
+    {
+        get => _captureMode;
+        set
+        {
+            if (_captureMode == value) return;
+            _captureMode = value;
+            _preferences.CaptureMode = value;
+            EnsureGalleryPageBounds();
+            CaptureModeChanged?.Invoke(this, value);
+        }
+    }
+
     public int GalleryPageIndex => _galleryPageIndex;
 
     public void SetGalleryPage(int page)
@@ -337,6 +369,94 @@ public sealed class CameraState
             GalleryPageSizeChanged?.Invoke(this, clamped);
             RecentCapturesChanged?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    public double VideoFps
+    {
+        get => _videoFps;
+        set
+        {
+            double clamped = Math.Clamp(value, 1.0, 240.0);
+            if (Math.Abs(_videoFps - clamped) < 0.0001) return;
+            _videoFps = clamped;
+            _preferences.VideoFps = clamped;
+            VideoSettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public double VideoShutterAngle
+    {
+        get => _videoShutterAngle;
+        set
+        {
+            double clamped = Math.Clamp(value, 1.0, 360.0);
+            if (Math.Abs(_videoShutterAngle - clamped) < 0.0001) return;
+            _videoShutterAngle = clamped;
+            _preferences.VideoShutterAngle = clamped;
+            VideoSettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public bool IsVideoRecording => _videoRecording;
+    public string? ActiveVideoSequencePath => _activeVideoSequencePath;
+
+    public void BeginVideoRecording(string sequencePath)
+    {
+        _videoRecording = true;
+        _activeVideoSequencePath = sequencePath;
+        VideoRecordingChanged?.Invoke(this, true);
+    }
+
+    public void EndVideoRecording()
+    {
+        if (!_videoRecording) return;
+        _videoRecording = false;
+        _activeVideoSequencePath = null;
+        VideoRecordingChanged?.Invoke(this, false);
+    }
+
+    public double TimelapseIntervalSeconds
+    {
+        get => _timelapseIntervalSeconds;
+        set
+        {
+            double clamped = Math.Clamp(value, 0.5, 3600.0);
+            if (Math.Abs(_timelapseIntervalSeconds - clamped) < 0.0001) return;
+            _timelapseIntervalSeconds = clamped;
+            _preferences.TimelapseIntervalSeconds = clamped;
+            TimelapseSettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public int TimelapseFrameCount
+    {
+        get => _timelapseFrameCount;
+        set
+        {
+            int clamped = Math.Clamp(value, 1, 10000);
+            if (_timelapseFrameCount == clamped) return;
+            _timelapseFrameCount = clamped;
+            _preferences.TimelapseFrameCount = clamped;
+            TimelapseSettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public bool TimelapseActive => _timelapseActive;
+    public string? ActiveTimelapsePath => _activeTimelapsePath;
+
+    public void BeginTimelapse(string sequencePath)
+    {
+        _timelapseActive = true;
+        _activeTimelapsePath = sequencePath;
+        TimelapseActiveChanged?.Invoke(this, true);
+    }
+
+    public void EndTimelapse()
+    {
+        if (!_timelapseActive) return;
+        _timelapseActive = false;
+        _activeTimelapsePath = null;
+        TimelapseActiveChanged?.Invoke(this, false);
     }
 
     private static string? NormalizeCapturePath(string? path)

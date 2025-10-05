@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using Gtk;
 
@@ -48,6 +49,20 @@ public sealed class MainWindowBuilder
         var captureButton = Require<Button>(liveBuilder, "capture_button");
         var settingsButton = Require<Button>(liveBuilder, "settings_button");
         var galleryButton = Require<Button>(liveBuilder, "gallery_button");
+        var modeMenuToggle = Require<ToggleButton>(liveBuilder, "mode_menu_toggle");
+        var modeRevealer = Require<Revealer>(liveBuilder, "mode_revealer");
+        var modePhotoToggle = Require<ToggleButton>(liveBuilder, "mode_photo_toggle");
+        var modeVideoToggle = Require<ToggleButton>(liveBuilder, "mode_video_toggle");
+        var modeTimelapseToggle = Require<ToggleButton>(liveBuilder, "mode_timelapse_toggle");
+        var modeStack = Require<Stack>(liveBuilder, "mode_stack");
+        var videoFpsCombo = Require<ComboBoxText>(liveBuilder, "video_fps_combo");
+        var videoShutterAngleSpin = Require<SpinButton>(liveBuilder, "video_shutter_angle_spin");
+        var videoRecordButton = Require<Button>(liveBuilder, "video_record_button");
+        var videoStatusLabel = Require<Label>(liveBuilder, "video_status_label");
+        var timelapseIntervalSpin = Require<SpinButton>(liveBuilder, "timelapse_interval_spin");
+        var timelapseFrameCountSpin = Require<SpinButton>(liveBuilder, "timelapse_frame_count_spin");
+        var timelapseStartButton = Require<Button>(liveBuilder, "timelapse_start_button");
+        var timelapseStatusLabel = Require<Label>(liveBuilder, "timelapse_status_label");
 
         using var settingsBuilder = Builder.NewFromFile(ResolveLayoutPath(SettingsLayoutFileName));
         var settingsRoot = Require<Box>(settingsBuilder, "settings_root");
@@ -105,6 +120,9 @@ public sealed class MainWindowBuilder
         ConfigureResolutionCombo(settingsView.ResolutionCombo);
         ConfigureSettingsPanel(settingsView);
         ConfigureGallerySettings(settingsView);
+        ConfigureModeControls(modeMenuToggle, modeRevealer, modePhotoToggle, modeVideoToggle, modeTimelapseToggle, modeStack, captureButton);
+        ConfigureVideoControls(videoFpsCombo, videoShutterAngleSpin, videoRecordButton, videoStatusLabel);
+        ConfigureTimelapseControls(timelapseIntervalSpin, timelapseFrameCountSpin, timelapseStartButton, timelapseStatusLabel);
         ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
 
         StyleInstaller.TryInstall();
@@ -125,6 +143,20 @@ public sealed class MainWindowBuilder
             captureButton,
             settingsButton,
             galleryButton,
+            modeMenuToggle,
+            modePhotoToggle,
+            modeVideoToggle,
+            modeTimelapseToggle,
+            modeRevealer,
+            modeStack,
+            videoFpsCombo,
+            videoShutterAngleSpin,
+            videoRecordButton,
+            videoStatusLabel,
+            timelapseIntervalSpin,
+            timelapseFrameCountSpin,
+            timelapseStartButton,
+            timelapseStatusLabel,
             stack,
             liveOverlay,
             settingsView,
@@ -358,6 +390,254 @@ public sealed class MainWindowBuilder
             settingsView.GalleryPageSizeSpin.Value = size;
             suppressPageSize = false;
         };
+    }
+
+    private void ConfigureModeControls(ToggleButton modeMenuToggle, Revealer modeRevealer, ToggleButton photoToggle, ToggleButton videoToggle, ToggleButton timelapseToggle, Stack modeStack, Button captureButton)
+    {
+        if (modeMenuToggle is null || modeRevealer is null || photoToggle is null || videoToggle is null || timelapseToggle is null || modeStack is null || captureButton is null)
+        {
+            return;
+        }
+
+        bool suppress = false;
+        bool menuSuppress = false;
+
+        modeMenuToggle.Active = false;
+        modeRevealer.SetRevealChild(false);
+
+        modeMenuToggle.OnToggled += (_, __) =>
+        {
+            if (menuSuppress) return;
+            modeRevealer.SetRevealChild(modeMenuToggle.Active);
+        };
+
+        void CloseModeMenu()
+        {
+            menuSuppress = true;
+            modeMenuToggle.Active = false;
+            menuSuppress = false;
+            modeRevealer.SetRevealChild(false);
+        }
+
+        void UpdateVisualState(CaptureMode mode)
+        {
+            suppress = true;
+            photoToggle.Active = mode == CaptureMode.Photo;
+            videoToggle.Active = mode == CaptureMode.Video;
+            timelapseToggle.Active = mode == CaptureMode.Timelapse;
+            suppress = false;
+
+            modeStack.SetVisibleChildName(mode switch
+            {
+                CaptureMode.Photo => "photo",
+                CaptureMode.Video => "video",
+                CaptureMode.Timelapse => "timelapse",
+                _ => "photo"
+            });
+
+            if (captureButton is not null)
+            {
+                captureButton.Sensitive = mode == CaptureMode.Photo;
+            }
+
+            CloseModeMenu();
+        }
+
+        photoToggle.OnToggled += (_, __) =>
+        {
+            if (suppress) return;
+            if (photoToggle.Active)
+            {
+                _dispatcher.FireAndForget(AppActionId.SetCaptureMode, new SetCaptureModePayload(CaptureMode.Photo));
+            }
+        };
+
+        videoToggle.OnToggled += (_, __) =>
+        {
+            if (suppress) return;
+            if (videoToggle.Active)
+            {
+                _dispatcher.FireAndForget(AppActionId.SetCaptureMode, new SetCaptureModePayload(CaptureMode.Video));
+            }
+        };
+
+        timelapseToggle.OnToggled += (_, __) =>
+        {
+            if (suppress) return;
+            if (timelapseToggle.Active)
+            {
+                _dispatcher.FireAndForget(AppActionId.SetCaptureMode, new SetCaptureModePayload(CaptureMode.Timelapse));
+            }
+        };
+
+        _state.CaptureModeChanged += (_, mode) => UpdateVisualState(mode);
+        UpdateVisualState(_state.CaptureMode);
+    }
+
+    private void ConfigureVideoControls(ComboBoxText fpsCombo, SpinButton shutterAngleSpin, Button recordButton, Label statusLabel)
+    {
+        if (fpsCombo is null || shutterAngleSpin is null || recordButton is null || statusLabel is null)
+        {
+            return;
+        }
+
+        fpsCombo.RemoveAll();
+        for (int i = 0; i < CameraPresets.VideoFpsOptions.Length; i++)
+        {
+            double fps = CameraPresets.VideoFpsOptions[i];
+            string label = fps >= 100 ? fps.ToString("0.##", CultureInfo.InvariantCulture) : fps.ToString("0.###", CultureInfo.InvariantCulture);
+            fpsCombo.AppendText(label);
+        }
+
+        bool suppress = false;
+
+        void UpdateFpsSelection()
+        {
+            suppress = true;
+            string targetId = _state.VideoFps.ToString("0.###", CultureInfo.InvariantCulture);
+            int match = -1;
+            for (int i = 0; i < CameraPresets.VideoFpsOptions.Length; i++)
+            {
+                if (Math.Abs(CameraPresets.VideoFpsOptions[i] - _state.VideoFps) < 0.001)
+                {
+                    match = i;
+                    break;
+                }
+            }
+            fpsCombo.Active = match >= 0 ? match : 0;
+            suppress = false;
+        }
+
+        shutterAngleSpin.Value = _state.VideoShutterAngle;
+
+        fpsCombo.OnChanged += (_, __) =>
+        {
+            if (suppress) return;
+            double fps = _state.VideoFps;
+            int index = fpsCombo.Active;
+            if (index >= 0 && index < CameraPresets.VideoFpsOptions.Length)
+            {
+                fps = CameraPresets.VideoFpsOptions[index];
+            }
+            else if (!string.IsNullOrEmpty(fpsCombo.GetActiveText()) && double.TryParse(fpsCombo.GetActiveText(), NumberStyles.Float, CultureInfo.InvariantCulture, out var textVal))
+            {
+                fps = textVal;
+            }
+
+            _dispatcher.FireAndForget(AppActionId.UpdateVideoSettings, new UpdateVideoSettingsPayload(fps, _state.VideoShutterAngle));
+        };
+
+        shutterAngleSpin.OnValueChanged += (_, __) =>
+        {
+            if (suppress) return;
+            double fps = _state.VideoFps;
+            double angle = shutterAngleSpin.Value;
+            _dispatcher.FireAndForget(AppActionId.UpdateVideoSettings, new UpdateVideoSettingsPayload(fps, angle));
+        };
+
+        void UpdateRecordingUi()
+        {
+            recordButton.Label = _state.IsVideoRecording ? "■ Stop Recording" : "● Start Recording";
+            bool isVideoMode = _state.CaptureMode == CaptureMode.Video;
+            recordButton.Sensitive = isVideoMode;
+            bool settingsEnabled = isVideoMode && !_state.IsVideoRecording;
+            fpsCombo.Sensitive = settingsEnabled;
+            shutterAngleSpin.Sensitive = settingsEnabled;
+            statusLabel.SetText(_state.IsVideoRecording
+                ? ($"Recording… {_state.ActiveVideoSequencePath ?? string.Empty}")
+                : "Idle");
+        }
+
+        recordButton.OnClicked += (_, __) =>
+        {
+            if (_state.IsVideoRecording)
+            {
+                _dispatcher.FireAndForget(AppActionId.StopVideoRecording);
+            }
+            else
+            {
+                _dispatcher.FireAndForget(AppActionId.StartVideoRecording);
+            }
+        };
+
+        _state.VideoSettingsChanged += (_, __) =>
+        {
+            suppress = true;
+            UpdateFpsSelection();
+            shutterAngleSpin.Value = _state.VideoShutterAngle;
+            suppress = false;
+        };
+
+        _state.VideoRecordingChanged += (_, __) => UpdateRecordingUi();
+        _state.CaptureModeChanged += (_, __) => UpdateRecordingUi();
+
+        UpdateFpsSelection();
+        UpdateRecordingUi();
+    }
+
+    private void ConfigureTimelapseControls(SpinButton intervalSpin, SpinButton frameCountSpin, Button startButton, Label statusLabel)
+    {
+        if (intervalSpin is null || frameCountSpin is null || startButton is null || statusLabel is null)
+        {
+            return;
+        }
+
+        bool suppress = false;
+
+        intervalSpin.Value = _state.TimelapseIntervalSeconds;
+        frameCountSpin.Value = _state.TimelapseFrameCount;
+
+        intervalSpin.OnValueChanged += (_, __) =>
+        {
+            if (suppress) return;
+            double interval = Math.Max(0.5, intervalSpin.Value);
+            _dispatcher.FireAndForget(AppActionId.UpdateTimelapseSettings, new UpdateTimelapseSettingsPayload(interval, _state.TimelapseFrameCount));
+        };
+
+        frameCountSpin.OnValueChanged += (_, __) =>
+        {
+            if (suppress) return;
+            int frames = Math.Max(1, (int)Math.Round(frameCountSpin.Value));
+            _dispatcher.FireAndForget(AppActionId.UpdateTimelapseSettings, new UpdateTimelapseSettingsPayload(_state.TimelapseIntervalSeconds, frames));
+        };
+
+        startButton.OnClicked += (_, __) =>
+        {
+            if (_state.TimelapseActive)
+            {
+                _dispatcher.FireAndForget(AppActionId.StopTimelapse);
+            }
+            else
+            {
+                _dispatcher.FireAndForget(AppActionId.StartTimelapse);
+            }
+        };
+
+        void UpdateTimelapseUi()
+        {
+            bool isTimelapseMode = _state.CaptureMode == CaptureMode.Timelapse;
+            startButton.Label = _state.TimelapseActive ? "■ Stop Timelapse" : "▶ Start Timelapse";
+            startButton.Sensitive = isTimelapseMode;
+            bool settingsEnabled = isTimelapseMode && !_state.TimelapseActive;
+            intervalSpin.Sensitive = settingsEnabled;
+            frameCountSpin.Sensitive = settingsEnabled;
+            statusLabel.SetText(_state.TimelapseActive
+                ? ($"Capturing… {_state.ActiveTimelapsePath ?? string.Empty}")
+                : "Idle");
+        }
+
+        _state.TimelapseSettingsChanged += (_, __) =>
+        {
+            suppress = true;
+            intervalSpin.Value = _state.TimelapseIntervalSeconds;
+            frameCountSpin.Value = _state.TimelapseFrameCount;
+            suppress = false;
+        };
+
+        _state.TimelapseActiveChanged += (_, __) => UpdateTimelapseUi();
+        _state.CaptureModeChanged += (_, __) => UpdateTimelapseUi();
+
+        UpdateTimelapseUi();
     }
 
     private void ConfigureNavigation(

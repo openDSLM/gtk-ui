@@ -43,6 +43,65 @@ public sealed class UserPreferences
         }
     }
 
+    public CaptureMode CaptureMode
+    {
+        get => _model.CaptureMode;
+        set
+        {
+            if (_model.CaptureMode == value) return;
+            _model.CaptureMode = value;
+            SavePreferences();
+        }
+    }
+
+    public double VideoFps
+    {
+        get => _model.VideoFps;
+        set
+        {
+            double clamped = Math.Clamp(value, 1.0, 240.0);
+            if (Math.Abs(_model.VideoFps - clamped) < 0.0001) return;
+            _model.VideoFps = clamped;
+            SavePreferences();
+        }
+    }
+
+    public double VideoShutterAngle
+    {
+        get => _model.VideoShutterAngle;
+        set
+        {
+            double clamped = Math.Clamp(value, 1.0, 360.0);
+            if (Math.Abs(_model.VideoShutterAngle - clamped) < 0.0001) return;
+            _model.VideoShutterAngle = clamped;
+            SavePreferences();
+        }
+    }
+
+    public double TimelapseIntervalSeconds
+    {
+        get => _model.TimelapseIntervalSeconds;
+        set
+        {
+            double clamped = Math.Clamp(value, 0.5, 3600.0);
+            if (Math.Abs(_model.TimelapseIntervalSeconds - clamped) < 0.0001) return;
+            _model.TimelapseIntervalSeconds = clamped;
+            SavePreferences();
+        }
+    }
+
+    public int TimelapseFrameCount
+    {
+        get => _model.TimelapseFrameCount;
+        set
+        {
+            int clamped = Math.Clamp(value, 1, 10000);
+            if (_model.TimelapseFrameCount == clamped) return;
+            _model.TimelapseFrameCount = clamped;
+            SavePreferences();
+        }
+    }
+
     private PreferencesModel LoadPreferences()
     {
         try
@@ -101,6 +160,26 @@ public sealed class UserPreferences
         {
             model.GalleryPageSize = 4;
         }
+        if (!Enum.IsDefined(typeof(CaptureMode), model.CaptureMode))
+        {
+            model.CaptureMode = CaptureMode.Photo;
+        }
+        if (model.VideoFps < 1.0 || model.VideoFps > 240.0)
+        {
+            model.VideoFps = 24.0;
+        }
+        if (model.VideoShutterAngle < 1.0 || model.VideoShutterAngle > 360.0)
+        {
+            model.VideoShutterAngle = 180.0;
+        }
+        if (model.TimelapseIntervalSeconds < 0.5 || model.TimelapseIntervalSeconds > 3600.0)
+        {
+            model.TimelapseIntervalSeconds = 5.0;
+        }
+        if (model.TimelapseFrameCount < 1 || model.TimelapseFrameCount > 10000)
+        {
+            model.TimelapseFrameCount = 120;
+        }
         return model;
     }
 
@@ -108,5 +187,10 @@ public sealed class UserPreferences
     {
         public bool GalleryColorEnabled { get; set; } = true;
         public int GalleryPageSize { get; set; } = 4;
+        public CaptureMode CaptureMode { get; set; } = CaptureMode.Photo;
+        public double VideoFps { get; set; } = 24.0;
+        public double VideoShutterAngle { get; set; } = 180.0;
+        public double TimelapseIntervalSeconds { get; set; } = 5.0;
+        public int TimelapseFrameCount { get; set; } = 120;
     }
 }

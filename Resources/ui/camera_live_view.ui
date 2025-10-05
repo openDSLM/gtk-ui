@@ -23,6 +23,27 @@
     <property name="page-increment">0.1</property>
     <property name="value">0.5</property>
   </object>
+  <object class="GtkAdjustment" id="video_shutter_angle_adjustment">
+    <property name="lower">1.0</property>
+    <property name="upper">360.0</property>
+    <property name="step-increment">1.0</property>
+    <property name="page-increment">15.0</property>
+    <property name="value">180.0</property>
+  </object>
+  <object class="GtkAdjustment" id="timelapse_interval_adjustment">
+    <property name="lower">0.5</property>
+    <property name="upper">3600.0</property>
+    <property name="step-increment">0.5</property>
+    <property name="page-increment">5.0</property>
+    <property name="value">5.0</property>
+  </object>
+  <object class="GtkAdjustment" id="timelapse_frame_count_adjustment">
+    <property name="lower">1.0</property>
+    <property name="upper">10000.0</property>
+    <property name="step-increment">1.0</property>
+    <property name="page-increment">10.0</property>
+    <property name="value">120.0</property>
+  </object>
   <object class="GtkOverlay" id="live_overlay">
     <property name="hexpand">true</property>
     <property name="vexpand">true</property>
@@ -68,89 +89,250 @@
           </object>
         </child>
         <child>
-          <object class="GtkBox" id="auto_row">
-            <property name="spacing">6</property>
-            <property name="css-classes">control-row</property>
-            <child>
-              <object class="GtkLabel" id="auto_label">
-                <property name="label">Auto AE/AGC</property>
-                <property name="css-classes">control-inline-label</property>
-                <property name="wrap">true</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkCheckButton" id="auto_toggle">
-                <property name="active">true</property>
-                <property name="css-classes">control-toggle</property>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="iso_label">
-            <property name="label">ISO</property>
-            <property name="css-classes">control-section-label</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkComboBoxText" id="iso_combo">
-            <property name="css-classes">control-input</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="shutter_label">
-            <property name="label">Shutter</property>
-            <property name="css-classes">control-section-label</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkComboBoxText" id="shutter_combo">
-            <property name="css-classes">control-input</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="zoom_label">
-            <property name="label">Zoom</property>
-            <property name="css-classes">control-section-label</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkScale" id="zoom_scale">
-            <property name="orientation">horizontal</property>
-            <property name="digits">2</property>
-            <property name="adjustment">zoom_adjustment</property>
-            <property name="css-classes">control-input</property>
-            <property name="hexpand">true</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="pan_label">
-            <property name="label">Pan X / Pan Y</property>
-            <property name="css-classes">control-section-label</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkScale" id="pan_x_scale">
-            <property name="orientation">horizontal</property>
-            <property name="digits">2</property>
-            <property name="adjustment">pan_x_adjustment</property>
-            <property name="css-classes">control-input</property>
-            <property name="hexpand">true</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkScale" id="pan_y_scale">
-            <property name="orientation">horizontal</property>
-            <property name="digits">2</property>
-            <property name="adjustment">pan_y_adjustment</property>
-            <property name="css-classes">control-input</property>
-            <property name="hexpand">true</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkButton" id="capture_button">
-            <property name="label">● Capture DNG</property>
+          <object class="GtkToggleButton" id="mode_menu_toggle">
+            <property name="label">Mode</property>
             <property name="css-classes">control-button</property>
+            <property name="halign">fill</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkRevealer" id="mode_revealer">
+            <property name="hexpand">true</property>
+            <property name="transition-type">slide-down</property>
+            <property name="reveal-child">false</property>
+            <child>
+              <object class="GtkBox" id="mode_revealer_box">
+                <property name="orientation">vertical</property>
+                <property name="spacing">6</property>
+                <child>
+                  <object class="GtkBox" id="mode_button_row">
+                    <property name="orientation">horizontal</property>
+                    <property name="spacing">6</property>
+                    <child>
+                      <object class="GtkToggleButton" id="mode_photo_toggle">
+                        <property name="label">Photo</property>
+                        <property name="active">true</property>
+                        <property name="css-classes">control-button</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkToggleButton" id="mode_video_toggle">
+                        <property name="label">Video</property>
+                        <property name="group">mode_photo_toggle</property>
+                        <property name="css-classes">control-button</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkToggleButton" id="mode_timelapse_toggle">
+                        <property name="label">Timelapse</property>
+                        <property name="group">mode_photo_toggle</property>
+                        <property name="css-classes">control-button</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkStack" id="mode_stack">
+                    <property name="hexpand">true</property>
+                    <property name="transition-type">crossfade</property>
+                    <child>
+                      <object class="GtkStackPage" id="mode_photo_page">
+                        <property name="name">photo</property>
+                        <property name="child">
+                          <object class="GtkBox" id="photo_controls_box">
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">8</property>
+                            <property name="hexpand">true</property>
+                            <child>
+                              <object class="GtkBox" id="auto_row">
+                                <property name="spacing">6</property>
+                                <property name="css-classes">control-row</property>
+                                <child>
+                                  <object class="GtkLabel" id="auto_label">
+                                    <property name="label">Auto AE/AGC</property>
+                                    <property name="css-classes">control-inline-label</property>
+                                    <property name="wrap">true</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkCheckButton" id="auto_toggle">
+                                    <property name="active">true</property>
+                                    <property name="css-classes">control-toggle</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="iso_label">
+                                <property name="label">ISO</property>
+                                <property name="css-classes">control-section-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkComboBoxText" id="iso_combo">
+                                <property name="css-classes">control-input</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="shutter_label">
+                                <property name="label">Shutter</property>
+                                <property name="css-classes">control-section-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkComboBoxText" id="shutter_combo">
+                                <property name="css-classes">control-input</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="zoom_label">
+                                <property name="label">Zoom</property>
+                                <property name="css-classes">control-section-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="zoom_scale">
+                                <property name="orientation">horizontal</property>
+                                <property name="digits">2</property>
+                                <property name="adjustment">zoom_adjustment</property>
+                                <property name="css-classes">control-input</property>
+                                <property name="hexpand">true</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="pan_label">
+                                <property name="label">Pan X / Pan Y</property>
+                                <property name="css-classes">control-section-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="pan_x_scale">
+                                <property name="orientation">horizontal</property>
+                                <property name="digits">2</property>
+                                <property name="adjustment">pan_x_adjustment</property>
+                                <property name="css-classes">control-input</property>
+                                <property name="hexpand">true</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="pan_y_scale">
+                                <property name="orientation">horizontal</property>
+                                <property name="digits">2</property>
+                                <property name="adjustment">pan_y_adjustment</property>
+                                <property name="css-classes">control-input</property>
+                                <property name="hexpand">true</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="capture_button">
+                                <property name="label">● Capture DNG</property>
+                                <property name="css-classes">control-button</property>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkStackPage" id="mode_video_page">
+                        <property name="name">video</property>
+                        <property name="child">
+                          <object class="GtkBox" id="video_controls_box">
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">8</property>
+                            <child>
+                              <object class="GtkLabel" id="video_fps_label">
+                                <property name="label">Frame Rate</property>
+                                <property name="css-classes">control-section-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkComboBoxText" id="video_fps_combo">
+                                <property name="css-classes">control-input</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="video_shutter_angle_label">
+                                <property name="label">Shutter Angle (°)</property>
+                                <property name="css-classes">control-section-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkSpinButton" id="video_shutter_angle_spin">
+                                <property name="adjustment">video_shutter_angle_adjustment</property>
+                                <property name="digits">0</property>
+                                <property name="css-classes">control-input</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="video_record_button">
+                                <property name="label">● Start Recording</property>
+                                <property name="css-classes">control-button</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="video_status_label">
+                                <property name="label">Idle</property>
+                                <property name="css-classes">control-inline-label</property>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkStackPage" id="mode_timelapse_page">
+                        <property name="name">timelapse</property>
+                        <property name="child">
+                          <object class="GtkBox" id="timelapse_controls_box">
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">8</property>
+                            <child>
+                              <object class="GtkLabel" id="timelapse_interval_label">
+                                <property name="label">Interval (s)</property>
+                                <property name="css-classes">control-section-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkSpinButton" id="timelapse_interval_spin">
+                                <property name="adjustment">timelapse_interval_adjustment</property>
+                                <property name="digits">2</property>
+                                <property name="css-classes">control-input</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="timelapse_frame_count_label">
+                                <property name="label">Frame Count</property>
+                                <property name="css-classes">control-section-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkSpinButton" id="timelapse_frame_count_spin">
+                                <property name="adjustment">timelapse_frame_count_adjustment</property>
+                                <property name="digits">0</property>
+                                <property name="css-classes">control-input</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="timelapse_start_button">
+                                <property name="label">▶ Start Timelapse</property>
+                                <property name="css-classes">control-button</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="timelapse_status_label">
+                                <property name="label">Idle</property>
+                                <property name="css-classes">control-inline-label</property>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
           </object>
         </child>
       </object>
