@@ -25,6 +25,9 @@ public sealed class CameraState
     private double _videoShutterAngle = 180.0;
     private bool _videoRecording;
     private string? _activeVideoSequencePath;
+    private double _videoActualFps;
+    private int _videoCapturedFrames;
+    private int _videoDroppedFrames;
     private double _timelapseIntervalSeconds = 5.0;
     private int _timelapseFrameCount = 120;
     private bool _timelapseActive;
@@ -61,12 +64,14 @@ public sealed class CameraState
     public event EventHandler<CaptureMode>? CaptureModeChanged;
     public event EventHandler? VideoSettingsChanged;
     public event EventHandler<bool>? VideoRecordingChanged;
+    public event EventHandler<VideoRecordingMetrics>? VideoRecordingMetricsChanged;
     public event EventHandler? TimelapseSettingsChanged;
     public event EventHandler<bool>? TimelapseActiveChanged;
 
     public long? LastExposureMicroseconds { get; private set; }
     public int? LastIso { get; private set; }
     public double? LastAnalogueGain { get; private set; }
+    public readonly record struct VideoRecordingMetrics(double TargetFps, double ActualFps, int CapturedFrames, int DroppedFrames);
     public string OutputDirectory
     {
         get => _outputDirectory;
@@ -381,6 +386,7 @@ public sealed class CameraState
             _videoFps = clamped;
             _preferences.VideoFps = clamped;
             VideoSettingsChanged?.Invoke(this, EventArgs.Empty);
+            NotifyVideoRecordingMetricsChanged();
         }
     }
 
@@ -399,11 +405,13 @@ public sealed class CameraState
 
     public bool IsVideoRecording => _videoRecording;
     public string? ActiveVideoSequencePath => _activeVideoSequencePath;
+    public VideoRecordingMetrics CurrentVideoRecordingMetrics => new VideoRecordingMetrics(_videoFps, _videoActualFps, _videoCapturedFrames, _videoDroppedFrames);
 
     public void BeginVideoRecording(string sequencePath)
     {
         _videoRecording = true;
         _activeVideoSequencePath = sequencePath;
+        ResetVideoRecordingMetrics();
         VideoRecordingChanged?.Invoke(this, true);
     }
 
@@ -413,6 +421,16 @@ public sealed class CameraState
         _videoRecording = false;
         _activeVideoSequencePath = null;
         VideoRecordingChanged?.Invoke(this, false);
+    }
+
+    public void ResetVideoRecordingMetrics()
+    {
+        SetVideoRecordingMetricsInternal(0.0, 0, 0, force: true);
+    }
+
+    public void UpdateVideoRecordingMetrics(double actualFps, int capturedFrames, int droppedFrames)
+    {
+        SetVideoRecordingMetricsInternal(actualFps, capturedFrames, droppedFrames, force: false);
     }
 
     public double TimelapseIntervalSeconds
@@ -457,6 +475,38 @@ public sealed class CameraState
         _timelapseActive = false;
         _activeTimelapsePath = null;
         TimelapseActiveChanged?.Invoke(this, false);
+    }
+
+    private void SetVideoRecordingMetricsInternal(double actualFps, int capturedFrames, int droppedFrames, bool force)
+    {
+        if (double.IsNaN(actualFps) || double.IsInfinity(actualFps))
+        {
+            actualFps = 0.0;
+        }
+
+        actualFps = Math.Clamp(actualFps, 0.0, 480.0);
+        capturedFrames = Math.Max(0, capturedFrames);
+        droppedFrames = Math.Max(0, droppedFrames);
+
+        bool changed = force
+            || Math.Abs(_videoActualFps - actualFps) > 0.005
+            || _videoCapturedFrames != capturedFrames
+            || _videoDroppedFrames != droppedFrames;
+
+        if (!changed)
+        {
+            return;
+        }
+
+        _videoActualFps = actualFps;
+        _videoCapturedFrames = capturedFrames;
+        _videoDroppedFrames = droppedFrames;
+        NotifyVideoRecordingMetricsChanged();
+    }
+
+    private void NotifyVideoRecordingMetricsChanged()
+    {
+        VideoRecordingMetricsChanged?.Invoke(this, new VideoRecordingMetrics(_videoFps, _videoActualFps, _videoCapturedFrames, _videoDroppedFrames));
     }
 
     private static string? NormalizeCapturePath(string? path)

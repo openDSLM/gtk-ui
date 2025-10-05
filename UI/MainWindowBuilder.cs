@@ -9,6 +9,9 @@ public sealed class MainWindowBuilder
     private const string LiveLayoutFileName = "camera_live_view.ui";
     private const string SettingsLayoutFileName = "camera_settings_page.ui";
     private const string GalleryLayoutFileName = "camera_gallery_page.ui";
+    private const string PhotoControlsLayoutFileName = "mode_photo_controls.ui";
+    private const string VideoControlsLayoutFileName = "mode_video_controls.ui";
+    private const string TimelapseControlsLayoutFileName = "mode_timelapse_controls.ui";
 
     private readonly CameraState _state;
     private readonly ActionDispatcher _dispatcher;
@@ -40,13 +43,6 @@ public sealed class MainWindowBuilder
         var liveOverlay = Require<Overlay>(liveBuilder, "live_overlay");
         var picture = Require<Picture>(liveBuilder, "live_picture");
         var hud = Require<Label>(liveBuilder, "hud_label");
-        var autoToggle = Require<CheckButton>(liveBuilder, "auto_toggle");
-        var isoBox = Require<ComboBoxText>(liveBuilder, "iso_combo");
-        var shutterBox = Require<ComboBoxText>(liveBuilder, "shutter_combo");
-        var zoomScale = Require<Scale>(liveBuilder, "zoom_scale");
-        var panXScale = Require<Scale>(liveBuilder, "pan_x_scale");
-        var panYScale = Require<Scale>(liveBuilder, "pan_y_scale");
-        var captureButton = Require<Button>(liveBuilder, "capture_button");
         var settingsButton = Require<Button>(liveBuilder, "settings_button");
         var galleryButton = Require<Button>(liveBuilder, "gallery_button");
         var modeMenuToggle = Require<ToggleButton>(liveBuilder, "mode_menu_toggle");
@@ -55,14 +51,38 @@ public sealed class MainWindowBuilder
         var modeVideoToggle = Require<ToggleButton>(liveBuilder, "mode_video_toggle");
         var modeTimelapseToggle = Require<ToggleButton>(liveBuilder, "mode_timelapse_toggle");
         var modeStack = Require<Stack>(liveBuilder, "mode_stack");
-        var videoFpsCombo = Require<ComboBoxText>(liveBuilder, "video_fps_combo");
-        var videoShutterAngleSpin = Require<SpinButton>(liveBuilder, "video_shutter_angle_spin");
-        var videoRecordButton = Require<Button>(liveBuilder, "video_record_button");
-        var videoStatusLabel = Require<Label>(liveBuilder, "video_status_label");
-        var timelapseIntervalSpin = Require<SpinButton>(liveBuilder, "timelapse_interval_spin");
-        var timelapseFrameCountSpin = Require<SpinButton>(liveBuilder, "timelapse_frame_count_spin");
-        var timelapseStartButton = Require<Button>(liveBuilder, "timelapse_start_button");
-        var timelapseStatusLabel = Require<Label>(liveBuilder, "timelapse_status_label");
+
+        using var photoBuilder = Builder.NewFromFile(ResolveLayoutPath(PhotoControlsLayoutFileName));
+        var photoRoot = Require<Box>(photoBuilder, "photo_controls_box");
+        var autoToggle = Require<CheckButton>(photoBuilder, "auto_toggle");
+        var isoBox = Require<ComboBoxText>(photoBuilder, "iso_combo");
+        var shutterBox = Require<ComboBoxText>(photoBuilder, "shutter_combo");
+        var zoomScale = Require<Scale>(photoBuilder, "zoom_scale");
+        var panXScale = Require<Scale>(photoBuilder, "pan_x_scale");
+        var panYScale = Require<Scale>(photoBuilder, "pan_y_scale");
+        var captureButton = Require<Button>(photoBuilder, "capture_button");
+
+        using var videoBuilder = Builder.NewFromFile(ResolveLayoutPath(VideoControlsLayoutFileName));
+        var videoRoot = Require<Box>(videoBuilder, "video_controls_box");
+        var videoFpsCombo = Require<ComboBoxText>(videoBuilder, "video_fps_combo");
+        var videoShutterAngleSpin = Require<SpinButton>(videoBuilder, "video_shutter_angle_spin");
+        var videoRecordButton = Require<Button>(videoBuilder, "video_record_button");
+        var videoStatusLabel = Require<Label>(videoBuilder, "video_status_label");
+
+        using var timelapseBuilder = Builder.NewFromFile(ResolveLayoutPath(TimelapseControlsLayoutFileName));
+        var timelapseRoot = Require<Box>(timelapseBuilder, "timelapse_controls_box");
+        var timelapseIntervalSpin = Require<SpinButton>(timelapseBuilder, "timelapse_interval_spin");
+        var timelapseFrameCountSpin = Require<SpinButton>(timelapseBuilder, "timelapse_frame_count_spin");
+        var timelapseStartButton = Require<Button>(timelapseBuilder, "timelapse_start_button");
+        var timelapseStatusLabel = Require<Label>(timelapseBuilder, "timelapse_status_label");
+
+        modeStack.AddNamed(photoRoot, "photo");
+        modeStack.AddNamed(videoRoot, "video");
+        modeStack.AddNamed(timelapseRoot, "timelapse");
+
+        var photoView = new PhotoControlsView(photoRoot, autoToggle, isoBox, shutterBox, zoomScale, panXScale, panYScale, captureButton);
+        var videoView = new VideoControlsView(videoRoot, videoFpsCombo, videoShutterAngleSpin, videoRecordButton, videoStatusLabel);
+        var timelapseView = new TimelapseControlsView(timelapseRoot, timelapseIntervalSpin, timelapseFrameCountSpin, timelapseStartButton, timelapseStatusLabel);
 
         using var settingsBuilder = Builder.NewFromFile(ResolveLayoutPath(SettingsLayoutFileName));
         var settingsRoot = Require<Box>(settingsBuilder, "settings_root");
@@ -112,35 +132,28 @@ public sealed class MainWindowBuilder
             galleryFullPicture,
             galleryFullLabel);
 
-        ConfigureAutoToggle(autoToggle);
-        ConfigureIsoCombo(isoBox);
-        ConfigureShutterCombo(shutterBox);
-        ConfigureZoomControls(zoomScale, panXScale, panYScale);
-        ConfigureCaptureButton(captureButton);
+        ConfigureAutoToggle(photoView.AutoToggle);
+        ConfigureIsoCombo(photoView.IsoBox);
+        ConfigureShutterCombo(photoView.ShutterBox);
+        ConfigureZoomControls(photoView.ZoomScale, photoView.PanXScale, photoView.PanYScale);
+        ConfigureCaptureButton(photoView.CaptureButton);
         ConfigureResolutionCombo(settingsView.ResolutionCombo);
         ConfigureSettingsPanel(settingsView);
         ConfigureGallerySettings(settingsView);
-        ConfigureModeControls(modeMenuToggle, modeRevealer, modePhotoToggle, modeVideoToggle, modeTimelapseToggle, modeStack, captureButton);
-        ConfigureVideoControls(videoFpsCombo, videoShutterAngleSpin, videoRecordButton, videoStatusLabel);
-        ConfigureTimelapseControls(timelapseIntervalSpin, timelapseFrameCountSpin, timelapseStartButton, timelapseStatusLabel);
+        ConfigureModeControls(modeMenuToggle, modeRevealer, modePhotoToggle, modeVideoToggle, modeTimelapseToggle, modeStack, photoView);
+        ConfigureVideoControls(videoView);
+        ConfigureTimelapseControls(timelapseView);
         ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
 
         StyleInstaller.TryInstall();
 
-        BindStateToControls(autoToggle, isoBox, shutterBox, settingsView.ResolutionCombo, zoomScale, panXScale, panYScale, settingsView);
+        BindStateToControls(photoView, settingsView.ResolutionCombo, settingsView);
         BindGallery(galleryView);
 
         return new CameraWindow(
             window,
             picture,
             hud,
-            isoBox,
-            shutterBox,
-            autoToggle,
-            zoomScale,
-            panXScale,
-            panYScale,
-            captureButton,
             settingsButton,
             galleryButton,
             modeMenuToggle,
@@ -149,14 +162,9 @@ public sealed class MainWindowBuilder
             modeTimelapseToggle,
             modeRevealer,
             modeStack,
-            videoFpsCombo,
-            videoShutterAngleSpin,
-            videoRecordButton,
-            videoStatusLabel,
-            timelapseIntervalSpin,
-            timelapseFrameCountSpin,
-            timelapseStartButton,
-            timelapseStatusLabel,
+            photoView,
+            videoView,
+            timelapseView,
             stack,
             liveOverlay,
             settingsView,
@@ -392,9 +400,9 @@ public sealed class MainWindowBuilder
         };
     }
 
-    private void ConfigureModeControls(ToggleButton modeMenuToggle, Revealer modeRevealer, ToggleButton photoToggle, ToggleButton videoToggle, ToggleButton timelapseToggle, Stack modeStack, Button captureButton)
+    private void ConfigureModeControls(ToggleButton modeMenuToggle, Revealer modeRevealer, ToggleButton photoToggle, ToggleButton videoToggle, ToggleButton timelapseToggle, Stack modeStack, PhotoControlsView photoControls)
     {
-        if (modeMenuToggle is null || modeRevealer is null || photoToggle is null || videoToggle is null || timelapseToggle is null || modeStack is null || captureButton is null)
+        if (modeMenuToggle is null || modeRevealer is null || photoToggle is null || videoToggle is null || timelapseToggle is null || modeStack is null || photoControls is null)
         {
             return;
         }
@@ -435,9 +443,9 @@ public sealed class MainWindowBuilder
                 _ => "photo"
             });
 
-            if (captureButton is not null)
+            if (photoControls.CaptureButton is not null)
             {
-                captureButton.Sensitive = mode == CaptureMode.Photo;
+                photoControls.CaptureButton.Sensitive = mode == CaptureMode.Photo;
             }
 
             CloseModeMenu();
@@ -474,8 +482,18 @@ public sealed class MainWindowBuilder
         UpdateVisualState(_state.CaptureMode);
     }
 
-    private void ConfigureVideoControls(ComboBoxText fpsCombo, SpinButton shutterAngleSpin, Button recordButton, Label statusLabel)
+    private void ConfigureVideoControls(VideoControlsView view)
     {
+        if (view is null)
+        {
+            return;
+        }
+
+        var fpsCombo = view.FpsCombo;
+        var shutterAngleSpin = view.ShutterAngleSpin;
+        var recordButton = view.RecordButton;
+        var statusLabel = view.StatusLabel;
+
         if (fpsCombo is null || shutterAngleSpin is null || recordButton is null || statusLabel is null)
         {
             return;
@@ -543,9 +561,32 @@ public sealed class MainWindowBuilder
             bool settingsEnabled = isVideoMode && !_state.IsVideoRecording;
             fpsCombo.Sensitive = settingsEnabled;
             shutterAngleSpin.Sensitive = settingsEnabled;
-            statusLabel.SetText(_state.IsVideoRecording
-                ? ($"Recording… {_state.ActiveVideoSequencePath ?? string.Empty}")
-                : "Idle");
+            if (_state.IsVideoRecording)
+            {
+                var metrics = _state.CurrentVideoRecordingMetrics;
+                string sequencePath = _state.ActiveVideoSequencePath ?? string.Empty;
+                string sequenceName = string.IsNullOrEmpty(sequencePath) ? string.Empty : Path.GetFileName(sequencePath);
+                string header = string.IsNullOrEmpty(sequenceName) ? "Recording…" : $"Recording… {sequenceName}";
+                string metricsText;
+                if (metrics.CapturedFrames > 0)
+                {
+                    metricsText = $"{metrics.CapturedFrames} frames · {metrics.ActualFps:0.0} fps actual / {metrics.TargetFps:0.0} fps target";
+                    if (metrics.DroppedFrames > 0)
+                    {
+                        metricsText += $" · dropped {metrics.DroppedFrames}";
+                    }
+                }
+                else
+                {
+                    metricsText = $"Target {metrics.TargetFps:0.0} fps";
+                }
+
+                statusLabel.SetText($"{header}\n{metricsText}");
+            }
+            else
+            {
+                statusLabel.SetText("Idle");
+            }
         }
 
         recordButton.OnClicked += (_, __) =>
@@ -569,14 +610,25 @@ public sealed class MainWindowBuilder
         };
 
         _state.VideoRecordingChanged += (_, __) => UpdateRecordingUi();
+        _state.VideoRecordingMetricsChanged += (_, __) => UpdateRecordingUi();
         _state.CaptureModeChanged += (_, __) => UpdateRecordingUi();
 
         UpdateFpsSelection();
         UpdateRecordingUi();
     }
 
-    private void ConfigureTimelapseControls(SpinButton intervalSpin, SpinButton frameCountSpin, Button startButton, Label statusLabel)
+    private void ConfigureTimelapseControls(TimelapseControlsView view)
     {
+        if (view is null)
+        {
+            return;
+        }
+
+        var intervalSpin = view.IntervalSpin;
+        var frameCountSpin = view.FrameCountSpin;
+        var startButton = view.StartButton;
+        var statusLabel = view.StatusLabel;
+
         if (intervalSpin is null || frameCountSpin is null || startButton is null || statusLabel is null)
         {
             return;
@@ -698,8 +750,20 @@ public sealed class MainWindowBuilder
         };
     }
 
-    private void BindStateToControls(CheckButton autoToggle, ComboBoxText isoBox, ComboBoxText shutterBox, ComboBoxText resBox, Scale zoomScale, Scale panXScale, Scale panYScale, CameraSettingsView settingsView)
+    private void BindStateToControls(PhotoControlsView photoControls, ComboBoxText resBox, CameraSettingsView settingsView)
     {
+        if (photoControls is null)
+        {
+            return;
+        }
+
+        var autoToggle = photoControls.AutoToggle;
+        var isoBox = photoControls.IsoBox;
+        var shutterBox = photoControls.ShutterBox;
+        var zoomScale = photoControls.ZoomScale;
+        var panXScale = photoControls.PanXScale;
+        var panYScale = photoControls.PanYScale;
+
         _state.AutoExposureChanged += (_, enabled) =>
         {
             _suppressAutoToggle = true;

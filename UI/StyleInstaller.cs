@@ -15,6 +15,18 @@ overlay > box.control-panel {
   box-shadow: 0 10px 28px rgba(0,0,0,0.45);
 }
 
+overlay > box#mode_overlay {
+  background-color: rgba(36, 36, 36, 0.78);
+  border-radius: 16px;
+  padding: 10px 16px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+}
+
+overlay > box#mode_overlay .control-button {
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
 overlay > box.control-panel label.control-section-label {
   color: #f5f5f5;
   font-weight: 600;

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <object class="GtkAdjustment" id="video_shutter_angle_adjustment">
+    <property name="lower">1.0</property>
+    <property name="upper">360.0</property>
+    <property name="step-increment">1.0</property>
+    <property name="page-increment">15.0</property>
+    <property name="value">180.0</property>
+  </object>
+  <object class="GtkBox" id="video_controls_box">
+    <property name="orientation">vertical</property>
+    <property name="spacing">8</property>
+    <child>
+      <object class="GtkLabel" id="video_fps_label">
+        <property name="label">Frame Rate</property>
+        <property name="css-classes">control-section-label</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkComboBoxText" id="video_fps_combo">
+        <property name="css-classes">control-input</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkLabel" id="video_shutter_angle_label">
+        <property name="label">Shutter Angle (°)</property>
+        <property name="css-classes">control-section-label</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSpinButton" id="video_shutter_angle_spin">
+        <property name="adjustment">video_shutter_angle_adjustment</property>
+        <property name="digits">0</property>
+        <property name="css-classes">control-input</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkButton" id="video_record_button">
+        <property name="label">● Start Recording</property>
+        <property name="css-classes">control-button</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkLabel" id="video_status_label">
+        <property name="label">Idle</property>
+        <property name="css-classes">control-inline-label</property>
+      </object>
+    </child>
+  </object>
+</interface>

@@ -1,16 +1,33 @@
 using Gtk;
 
+public sealed record PhotoControlsView(
+    Widget Root,
+    CheckButton AutoToggle,
+    ComboBoxText IsoBox,
+    ComboBoxText ShutterBox,
+    Scale ZoomScale,
+    Scale PanXScale,
+    Scale PanYScale,
+    Button CaptureButton);
+
+public sealed record VideoControlsView(
+    Widget Root,
+    ComboBoxText FpsCombo,
+    SpinButton ShutterAngleSpin,
+    Button RecordButton,
+    Label StatusLabel);
+
+public sealed record TimelapseControlsView(
+    Widget Root,
+    SpinButton IntervalSpin,
+    SpinButton FrameCountSpin,
+    Button StartButton,
+    Label StatusLabel);
+
 public sealed record CameraWindow(
     ApplicationWindow Window,
     Picture Picture,
     Label Hud,
-    ComboBoxText IsoBox,
-    ComboBoxText ShutterBox,
-    CheckButton AutoToggle,
-    Scale ZoomScale,
-    Scale PanXScale,
-    Scale PanYScale,
-    Button CaptureButton,
     Button SettingsButton,
     Button GalleryButton,
     ToggleButton ModeMenuToggle,
@@ -19,14 +36,9 @@ public sealed record CameraWindow(
     ToggleButton ModeTimelapseToggle,
     Revealer ModeRevealer,
     Stack ModeStack,
-    ComboBoxText VideoFpsCombo,
-    SpinButton VideoShutterAngleSpin,
-    Button VideoRecordButton,
-    Label VideoStatusLabel,
-    SpinButton TimelapseIntervalSpin,
-    SpinButton TimelapseFrameCountSpin,
-    Button TimelapseStartButton,
-    Label TimelapseStatusLabel,
+    PhotoControlsView PhotoControls,
+    VideoControlsView VideoControls,
+    TimelapseControlsView TimelapseControls,
     Stack PageStack,
     Widget LivePage,
     CameraSettingsView SettingsView,

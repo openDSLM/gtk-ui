@@ -37,6 +37,8 @@ public sealed class CameraController : IDisposable
     private string? _lastCaptureToken;
     private bool _galleryRefreshInFlight;
     private uint _videoTimerId;
+    private System.DateTime _videoRecordingStartUtc;
+    private int _videoCapturedFramesTotal;
     private uint _timelapseTimerId;
     private int _timelapseFramesCaptured;
     private bool _sequenceCaptureInFlight;
@@ -863,6 +865,8 @@ public sealed class CameraController : IDisposable
         }
 
         string sequencePath = CreateSequenceDirectory("clip");
+        _videoRecordingStartUtc = System.DateTime.UtcNow;
+        _videoCapturedFramesTotal = 0;
         _state.BeginVideoRecording(sequencePath);
         Console.WriteLine($"[Video] Recording started at {sequencePath}");
         TriggerSequenceCapture();
@@ -880,6 +884,7 @@ public sealed class CameraController : IDisposable
         Console.WriteLine("[Video] Recording stopped");
         CancelVideoTimer();
         _state.EndVideoRecording();
+        _videoRecordingStartUtc = default;
     }
 
     private async Task StartTimelapseAsync()
@@ -1036,6 +1041,32 @@ public sealed class CameraController : IDisposable
         {
             string moved = MoveFileToSequence(framePath, targetDirectory!);
             updated.Add(moved);
+        }
+
+        if (isVideo)
+        {
+            if (_videoRecordingStartUtc == default)
+            {
+                _videoRecordingStartUtc = System.DateTime.UtcNow;
+                _videoCapturedFramesTotal = 0;
+            }
+
+            if (updated.Count > 0)
+            {
+                _videoCapturedFramesTotal += updated.Count;
+            }
+
+            double elapsedSeconds = Math.Max((System.DateTime.UtcNow - _videoRecordingStartUtc).TotalSeconds, 0.001);
+            double targetFps = Math.Clamp(_state.VideoFps, 1.0, 240.0);
+            double actualFps = _videoCapturedFramesTotal > 0 ? _videoCapturedFramesTotal / elapsedSeconds : 0.0;
+            int expectedFrames = (int)Math.Round(targetFps * elapsedSeconds);
+            int droppedFrames = Math.Max(0, expectedFrames - _videoCapturedFramesTotal);
+
+            GLibFunctions.IdleAdd(0, () =>
+            {
+                _state.UpdateVideoRecordingMetrics(actualFps, _videoCapturedFramesTotal, droppedFrames);
+                return false;
+            });
         }
 
         if (!isVideo && _state.TimelapseActive && updated.Count > 0)

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <object class="GtkAdjustment" id="timelapse_interval_adjustment">
+    <property name="lower">0.5</property>
+    <property name="upper">3600.0</property>
+    <property name="step-increment">0.5</property>
+    <property name="page-increment">5.0</property>
+    <property name="value">5.0</property>
+  </object>
+  <object class="GtkAdjustment" id="timelapse_frame_count_adjustment">
+    <property name="lower">1.0</property>
+    <property name="upper">10000.0</property>
+    <property name="step-increment">1.0</property>
+    <property name="page-increment">10.0</property>
+    <property name="value">120.0</property>
+  </object>
+  <object class="GtkBox" id="timelapse_controls_box">
+    <property name="orientation">vertical</property>
+    <property name="spacing">8</property>
+    <child>
+      <object class="GtkLabel" id="timelapse_interval_label">
+        <property name="label">Interval (s)</property>
+        <property name="css-classes">control-section-label</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSpinButton" id="timelapse_interval_spin">
+        <property name="adjustment">timelapse_interval_adjustment</property>
+        <property name="digits">2</property>
+        <property name="css-classes">control-input</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkLabel" id="timelapse_frame_count_label">
+        <property name="label">Frame Count</property>
+        <property name="css-classes">control-section-label</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSpinButton" id="timelapse_frame_count_spin">
+        <property name="adjustment">timelapse_frame_count_adjustment</property>
+        <property name="digits">0</property>
+        <property name="css-classes">control-input</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkButton" id="timelapse_start_button">
+        <property name="label">▶ Start Timelapse</property>
+        <property name="css-classes">control-button</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkLabel" id="timelapse_status_label">
+        <property name="label">Idle</property>
+        <property name="css-classes">control-inline-label</property>
+      </object>
+    </child>
+  </object>
+</interface>
