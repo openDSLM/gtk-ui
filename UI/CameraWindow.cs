@@ -5,9 +5,6 @@ public sealed record PhotoControlsView(
     CheckButton AutoToggle,
     ComboBoxText IsoBox,
     ComboBoxText ShutterBox,
-    Scale ZoomScale,
-    Scale PanXScale,
-    Scale PanYScale,
     Button CaptureButton);
 
 public sealed record VideoControlsView(

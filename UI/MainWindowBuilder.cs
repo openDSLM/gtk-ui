@@ -57,9 +57,6 @@ public sealed class MainWindowBuilder
         var autoToggle = Require<CheckButton>(photoBuilder, "auto_toggle");
         var isoBox = Require<ComboBoxText>(photoBuilder, "iso_combo");
         var shutterBox = Require<ComboBoxText>(photoBuilder, "shutter_combo");
-        var zoomScale = Require<Scale>(photoBuilder, "zoom_scale");
-        var panXScale = Require<Scale>(photoBuilder, "pan_x_scale");
-        var panYScale = Require<Scale>(photoBuilder, "pan_y_scale");
         var captureButton = Require<Button>(photoBuilder, "capture_button");
 
         using var videoBuilder = Builder.NewFromFile(ResolveLayoutPath(VideoControlsLayoutFileName));
@@ -80,7 +77,7 @@ public sealed class MainWindowBuilder
         modeStack.AddNamed(videoRoot, "video");
         modeStack.AddNamed(timelapseRoot, "timelapse");
 
-        var photoView = new PhotoControlsView(photoRoot, autoToggle, isoBox, shutterBox, zoomScale, panXScale, panYScale, captureButton);
+        var photoView = new PhotoControlsView(photoRoot, autoToggle, isoBox, shutterBox,  captureButton);
         var videoView = new VideoControlsView(videoRoot, videoFpsCombo, videoShutterAngleSpin, videoRecordButton, videoStatusLabel);
         var timelapseView = new TimelapseControlsView(timelapseRoot, timelapseIntervalSpin, timelapseFrameCountSpin, timelapseStartButton, timelapseStatusLabel);
 
@@ -135,7 +132,6 @@ public sealed class MainWindowBuilder
         ConfigureAutoToggle(photoView.AutoToggle);
         ConfigureIsoCombo(photoView.IsoBox);
         ConfigureShutterCombo(photoView.ShutterBox);
-        ConfigureZoomControls(photoView.ZoomScale, photoView.PanXScale, photoView.PanYScale);
         ConfigureCaptureButton(photoView.CaptureButton);
         ConfigureResolutionCombo(settingsView.ResolutionCombo);
         ConfigureSettingsPanel(settingsView);
@@ -286,36 +282,6 @@ public sealed class MainWindowBuilder
             {
                 updating = false;
             }
-        };
-    }
-
-    private void ConfigureZoomControls(Scale zoomScale, Scale panXScale, Scale panYScale)
-    {
-        ((Gtk.Range)zoomScale).SetValue(_state.Zoom);
-        ((Gtk.Range)panXScale).SetValue(_state.PanX);
-        ((Gtk.Range)panYScale).SetValue(_state.PanY);
-
-        zoomScale.OnValueChanged += (_, __) =>
-        {
-            if (_suppressZoomChange) return;
-            double value = ((Gtk.Range)zoomScale).GetValue();
-            _dispatcher.FireAndForget(AppActionId.AdjustZoom, new AdjustZoomPayload(value));
-        };
-
-        panXScale.OnValueChanged += (_, __) =>
-        {
-            if (_suppressPanChange) return;
-            double x = ((Gtk.Range)panXScale).GetValue();
-            double y = ((Gtk.Range)panYScale).GetValue();
-            _dispatcher.FireAndForget(AppActionId.AdjustPan, new AdjustPanPayload(x, y));
-        };
-
-        panYScale.OnValueChanged += (_, __) =>
-        {
-            if (_suppressPanChange) return;
-            double x = ((Gtk.Range)panXScale).GetValue();
-            double y = ((Gtk.Range)panYScale).GetValue();
-            _dispatcher.FireAndForget(AppActionId.AdjustPan, new AdjustPanPayload(x, y));
         };
     }
 
@@ -760,9 +726,6 @@ public sealed class MainWindowBuilder
         var autoToggle = photoControls.AutoToggle;
         var isoBox = photoControls.IsoBox;
         var shutterBox = photoControls.ShutterBox;
-        var zoomScale = photoControls.ZoomScale;
-        var panXScale = photoControls.PanXScale;
-        var panYScale = photoControls.PanYScale;
 
         _state.AutoExposureChanged += (_, enabled) =>
         {
@@ -835,45 +798,8 @@ public sealed class MainWindowBuilder
             SetEntryText(settingsView.OutputDirectoryEntry, path ?? string.Empty);
         };
 
-        _state.ZoomChanged += (_, value) =>
-        {
-            _suppressZoomChange = true;
-            try
-            {
-                if (Math.Abs(((Gtk.Range)zoomScale).GetValue() - value) > 0.0001)
-                {
-                    ((Gtk.Range)zoomScale).SetValue(value);
-                }
-            }
-            finally
-            {
-                _suppressZoomChange = false;
-            }
-            UpdatePanSensitivity(panXScale, panYScale);
-        };
 
-        _state.PanChanged += (_, coords) =>
-        {
-            _suppressPanChange = true;
-            try
-            {
-                if (Math.Abs(((Gtk.Range)panXScale).GetValue() - coords.X) > 0.0001)
-                {
-                    ((Gtk.Range)panXScale).SetValue(coords.X);
-                }
-                if (Math.Abs(((Gtk.Range)panYScale).GetValue() - coords.Y) > 0.0001)
-                {
-                    ((Gtk.Range)panYScale).SetValue(coords.Y);
-                }
-            }
-            finally
-            {
-                _suppressPanChange = false;
-            }
-        };
 
-        _controller.ZoomInfrastructureChanged += (_, __) => UpdatePanSensitivity(panXScale, panYScale);
-        UpdatePanSensitivity(panXScale, panYScale);
     }
 
     private void BindGallery(GalleryView galleryView)
@@ -924,12 +850,7 @@ public sealed class MainWindowBuilder
         _dispatcher.FireAndForget(AppActionId.LoadGallery);
     }
 
-    private void UpdatePanSensitivity(Scale panXScale, Scale panYScale)
-    {
-        bool enablePan = _controller.SupportsZoomCropping && _state.Zoom > 1.0001;
-        panXScale.Sensitive = enablePan;
-        panYScale.Sensitive = enablePan;
-    }
+
 
     private static string GetEntryText(Entry entry)
     {
