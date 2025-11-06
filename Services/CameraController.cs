@@ -35,8 +35,9 @@ public sealed class CameraController : IDisposable
     private string? _previewCaps;
     private DaemonSettings? _lastSettings;
     private string? _lastCaptureToken;
+    private string? _lastCaptureSignature;
+    private int _lastCaptureProcessedCount;
     private bool _galleryRefreshInFlight;
-    private uint _videoTimerId;
     private System.DateTime _videoRecordingStartUtc;
     private int _videoCapturedFramesTotal;
     private uint _timelapseTimerId;
@@ -215,10 +216,9 @@ public sealed class CameraController : IDisposable
             await StartVideoRecordingAsync().ConfigureAwait(false);
         });
 
-        _dispatcher.Register(AppActionId.StopVideoRecording, () =>
+        _dispatcher.Register(AppActionId.StopVideoRecording, async () =>
         {
-            StopVideoRecording();
-            return Task.CompletedTask;
+            await StopVideoRecordingAsync().ConfigureAwait(false);
         });
 
         _dispatcher.Register<UpdateTimelapseSettingsPayload>(AppActionId.UpdateTimelapseSettings, payload =>
@@ -819,15 +819,28 @@ public sealed class CameraController : IDisposable
 
     private IReadOnlyList<string> ProcessLastCapture(DaemonCaptureResult capture)
     {
-        string token = $"{capture.Count}:{string.Join(',', capture.Frames)}";
+        if (capture == null)
+        {
+            return System.Array.Empty<string>();
+        }
+
+        if (string.Equals(capture.Type, "video", StringComparison.OrdinalIgnoreCase))
+        {
+            _lastCaptureToken = null;
+            return ProcessVideoCapture(capture);
+        }
+
+        string token = $"{capture.Count}:{string.Join(',', capture.Frames ?? System.Array.Empty<string>())}";
         if (token == _lastCaptureToken)
         {
             return System.Array.Empty<string>();
         }
 
         _lastCaptureToken = token;
+        _lastCaptureSignature = null;
+        _lastCaptureProcessedCount = 0;
 
-        var resolvedFrames = ResolveCapturePaths(capture.Frames);
+        var resolvedFrames = ResolveCapturePaths(capture.Frames, capture.Directory);
         resolvedFrames = HandleSequenceFrames(resolvedFrames);
 
         IReadOnlyList<string> snapshot = System.Array.Empty<string>();
@@ -857,6 +870,78 @@ public sealed class CameraController : IDisposable
         return snapshot;
     }
 
+    private IReadOnlyList<string> ProcessVideoCapture(DaemonCaptureResult capture)
+    {
+        var frames = capture.Frames ?? System.Array.Empty<string>();
+        if (frames.Length == 0)
+        {
+            return System.Array.Empty<string>();
+        }
+
+        string signatureBase = string.IsNullOrWhiteSpace(capture.Directory) ? string.Empty : capture.Directory!;
+        if (!string.IsNullOrWhiteSpace(capture.Type))
+        {
+            signatureBase = $"{capture.Type}:{signatureBase}";
+        }
+        if (string.IsNullOrWhiteSpace(signatureBase))
+        {
+            signatureBase = "video";
+        }
+
+        int processedBefore = 0;
+        if (string.Equals(signatureBase, _lastCaptureSignature, StringComparison.Ordinal))
+        {
+            processedBefore = _lastCaptureProcessedCount;
+            if (frames.Length <= processedBefore)
+            {
+                return System.Array.Empty<string>();
+            }
+        }
+        else
+        {
+            _lastCaptureSignature = signatureBase;
+            _lastCaptureProcessedCount = 0;
+        }
+
+        var newFrames = frames.Skip(_lastCaptureProcessedCount).ToList();
+        if (newFrames.Count == 0)
+        {
+            return System.Array.Empty<string>();
+        }
+
+        _lastCaptureProcessedCount = frames.Length;
+
+        var resolved = ResolveCapturePaths(newFrames, capture.Directory);
+        if (resolved.Count == 0)
+        {
+            return resolved;
+        }
+
+        if (_videoRecordingStartUtc == default)
+        {
+            _videoRecordingStartUtc = System.DateTime.UtcNow;
+            _videoCapturedFramesTotal = 0;
+        }
+
+        _videoCapturedFramesTotal += resolved.Count;
+
+        double elapsedSeconds = Math.Max((System.DateTime.UtcNow - _videoRecordingStartUtc).TotalSeconds, 0.001);
+        double targetFps = Math.Clamp(_state.VideoFps, 1.0, 240.0);
+        double actualFps = _videoCapturedFramesTotal > 0 ? _videoCapturedFramesTotal / elapsedSeconds : 0.0;
+        int expectedFrames = (int)Math.Round(targetFps * elapsedSeconds);
+        int droppedFrames = Math.Max(0, expectedFrames - _videoCapturedFramesTotal);
+
+        var snapshot = resolved.ToArray();
+        GLibFunctions.IdleAdd(0, () =>
+        {
+            _state.AppendRecentCaptures(snapshot);
+            _state.UpdateVideoRecordingMetrics(actualFps, _videoCapturedFramesTotal, droppedFrames);
+            return false;
+        });
+
+        return snapshot;
+    }
+
     private async Task StartVideoRecordingAsync()
     {
         if (_state.IsVideoRecording)
@@ -865,26 +950,52 @@ public sealed class CameraController : IDisposable
         }
 
         string sequencePath = CreateSequenceDirectory("clip");
+        string folderName = Path.GetFileName(sequencePath);
+        if (string.IsNullOrEmpty(folderName))
+        {
+            folderName = sequencePath;
+        }
+
+        try
+        {
+            await _daemonClient.StartVideoRecordingAsync(folderName).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Video] Failed to start recording: {ex.Message}");
+            return;
+        }
+
         _videoRecordingStartUtc = System.DateTime.UtcNow;
         _videoCapturedFramesTotal = 0;
+        _lastCaptureToken = null;
+        _lastCaptureSignature = null;
+        _lastCaptureProcessedCount = 0;
         _state.BeginVideoRecording(sequencePath);
         Console.WriteLine($"[Video] Recording started at {sequencePath}");
-        TriggerSequenceCapture();
-        ScheduleVideoCaptureTimer();
-        await Task.CompletedTask;
     }
 
-    private void StopVideoRecording()
+    private async Task StopVideoRecordingAsync()
     {
         if (!_state.IsVideoRecording)
         {
             return;
         }
 
+        try
+        {
+            await _daemonClient.StopVideoRecordingAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Video] Failed to stop recording: {ex.Message}");
+        }
+
         Console.WriteLine("[Video] Recording stopped");
-        CancelVideoTimer();
         _state.EndVideoRecording();
         _videoRecordingStartUtc = default;
+        _videoCapturedFramesTotal = 0;
+        _lastCaptureToken = null;
     }
 
     private async Task StartTimelapseAsync()
@@ -960,23 +1071,6 @@ public sealed class CameraController : IDisposable
         });
     }
 
-    private void ScheduleVideoCaptureTimer()
-    {
-        CancelVideoTimer();
-        double fps = Math.Clamp(_state.VideoFps, 1.0, 240.0);
-        uint interval = (uint)Math.Max(20, Math.Round(1000.0 / fps));
-        _videoTimerId = GLibFunctions.TimeoutAdd(0, interval, () =>
-        {
-            if (!_state.IsVideoRecording)
-            {
-                return false;
-            }
-
-            TriggerSequenceCapture();
-            return _state.IsVideoRecording;
-        });
-    }
-
     private void ScheduleTimelapseTimer()
     {
         CancelTimelapseTimer();
@@ -992,15 +1086,6 @@ public sealed class CameraController : IDisposable
             TriggerSequenceCapture();
             return _state.TimelapseActive;
         });
-    }
-
-    private void CancelVideoTimer()
-    {
-        if (_videoTimerId != 0)
-        {
-            GLibFunctions.SourceRemove(_videoTimerId);
-            _videoTimerId = 0;
-        }
     }
 
     private void CancelTimelapseTimer()
@@ -1020,13 +1105,7 @@ public sealed class CameraController : IDisposable
         }
 
         string? targetDirectory = null;
-        bool isVideo = false;
-        if (_state.IsVideoRecording && !string.IsNullOrEmpty(_state.ActiveVideoSequencePath))
-        {
-            targetDirectory = _state.ActiveVideoSequencePath;
-            isVideo = true;
-        }
-        else if (_state.TimelapseActive && !string.IsNullOrEmpty(_state.ActiveTimelapsePath))
+        if (_state.TimelapseActive && !string.IsNullOrEmpty(_state.ActiveTimelapsePath))
         {
             targetDirectory = _state.ActiveTimelapsePath;
         }
@@ -1043,33 +1122,7 @@ public sealed class CameraController : IDisposable
             updated.Add(moved);
         }
 
-        if (isVideo)
-        {
-            if (_videoRecordingStartUtc == default)
-            {
-                _videoRecordingStartUtc = System.DateTime.UtcNow;
-                _videoCapturedFramesTotal = 0;
-            }
-
-            if (updated.Count > 0)
-            {
-                _videoCapturedFramesTotal += updated.Count;
-            }
-
-            double elapsedSeconds = Math.Max((System.DateTime.UtcNow - _videoRecordingStartUtc).TotalSeconds, 0.001);
-            double targetFps = Math.Clamp(_state.VideoFps, 1.0, 240.0);
-            double actualFps = _videoCapturedFramesTotal > 0 ? _videoCapturedFramesTotal / elapsedSeconds : 0.0;
-            int expectedFrames = (int)Math.Round(targetFps * elapsedSeconds);
-            int droppedFrames = Math.Max(0, expectedFrames - _videoCapturedFramesTotal);
-
-            GLibFunctions.IdleAdd(0, () =>
-            {
-                _state.UpdateVideoRecordingMetrics(actualFps, _videoCapturedFramesTotal, droppedFrames);
-                return false;
-            });
-        }
-
-        if (!isVideo && _state.TimelapseActive && updated.Count > 0)
+        if (_state.TimelapseActive && updated.Count > 0)
         {
             _timelapseFramesCaptured += updated.Count;
             if (_timelapseFramesCaptured >= _state.TimelapseFrameCount)
@@ -1135,7 +1188,7 @@ public sealed class CameraController : IDisposable
         }
     }
 
-    private List<string> ResolveCapturePaths(IReadOnlyList<string> frames)
+    private List<string> ResolveCapturePaths(IReadOnlyList<string>? frames, string? captureDirectory)
     {
         var results = new List<string>();
         if (frames == null || frames.Count == 0)
@@ -1143,7 +1196,12 @@ public sealed class CameraController : IDisposable
             return results;
         }
 
-        string baseDir = _state.OutputDirectory;
+        string baseDir = captureDirectory ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(baseDir))
+        {
+            baseDir = _state.OutputDirectory;
+        }
+
         foreach (var frame in frames)
         {
             if (string.IsNullOrWhiteSpace(frame))
@@ -1152,7 +1210,7 @@ public sealed class CameraController : IDisposable
             }
 
             string candidate = frame.Trim();
-            if (!Path.IsPathRooted(candidate) && !string.IsNullOrEmpty(baseDir))
+            if (!Path.IsPathRooted(candidate) && !string.IsNullOrWhiteSpace(baseDir))
             {
                 candidate = Path.Combine(baseDir, candidate);
             }

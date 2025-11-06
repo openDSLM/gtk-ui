@@ -49,6 +49,30 @@ public sealed class CameraDaemonClient : IDisposable
         return JsonSerializer.Deserialize<DaemonCaptureResult>(json, SerializerOptions);
     }
 
+    public async Task<DaemonStatus?> StartVideoRecordingAsync(string? directory = null, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "recordings/video");
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            var payload = new { directory };
+            request.Content = new StringContent(JsonSerializer.Serialize(payload, SerializerOptions), Encoding.UTF8, "application/json");
+        }
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<DaemonStatus>(json, SerializerOptions);
+    }
+
+    public async Task<DaemonStatus?> StopVideoRecordingAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "recordings/video");
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<DaemonStatus>(json, SerializerOptions);
+    }
+
     public void Dispose()
     {
         _httpClient.Dispose();
@@ -129,6 +153,12 @@ public sealed record DaemonSettingsPatch
 
 public sealed class DaemonCaptureResult
 {
+    [JsonPropertyName("type")]
+    public string? Type { get; init; }
+
+    [JsonPropertyName("directory")]
+    public string? Directory { get; init; }
+
     [JsonPropertyName("frames")]
     public string[] Frames { get; init; } = Array.Empty<string>();
 
