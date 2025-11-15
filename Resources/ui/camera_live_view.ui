@@ -55,54 +55,5 @@
         </child>
       </object>
     </child>
-    <child type="overlay">
-      <object class="GtkBox" id="mode_overlay">
-        <property name="orientation">vertical</property>
-        <property name="spacing">6</property>
-        <property name="halign">center</property>
-        <property name="valign">start</property>
-        <property name="margin-top">12</property>
-        <child>
-          <object class="GtkToggleButton" id="mode_menu_toggle">
-            <property name="label">Mode</property>
-            <property name="css-classes">control-button</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkRevealer" id="mode_revealer">
-            <property name="transition-type">slide-down</property>
-            <property name="reveal-child">false</property>
-            <child>
-              <object class="GtkBox" id="mode_button_row">
-                <property name="orientation">horizontal</property>
-                <property name="spacing">6</property>
-                <property name="halign">center</property>
-                <child>
-                  <object class="GtkToggleButton" id="mode_photo_toggle">
-                    <property name="label">Photo</property>
-                    <property name="active">true</property>
-                    <property name="css-classes">control-button</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkToggleButton" id="mode_video_toggle">
-                    <property name="label">Video</property>
-                    <property name="group">mode_photo_toggle</property>
-                    <property name="css-classes">control-button</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkToggleButton" id="mode_timelapse_toggle">
-                    <property name="label">Timelapse</property>
-                    <property name="group">mode_photo_toggle</property>
-                    <property name="css-classes">control-button</property>
-                  </object>
-                </child>
-              </object>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
   </object>
 </interface>
