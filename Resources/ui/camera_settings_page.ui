@@ -189,13 +189,22 @@
                 <property name="name">metadata</property>
                 <property name="title">Metadata</property>
                 <property name="child">
-                  <object class="GtkBox" id="metadata_settings_box">
-                    <property name="orientation">vertical</property>
-                    <property name="spacing">12</property>
-                    <property name="margin-top">12</property>
-                    <property name="margin-bottom">12</property>
-                    <property name="margin-start">12</property>
-                    <property name="margin-end">12</property>
+                  <object class="GtkScrolledWindow" id="metadata_scroller">
+                    <property name="hexpand">true</property>
+                    <property name="vexpand">true</property>
+                    <property name="propagate-natural-height">false</property>
+                    <property name="propagate-natural-width">true</property>
+                    <child>
+                      <object class="GtkViewport">
+                        <property name="scroll-to-focus">true</property>
+                        <child>
+                          <object class="GtkBox" id="metadata_settings_box">
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">12</property>
+                            <property name="margin-top">12</property>
+                            <property name="margin-bottom">12</property>
+                            <property name="margin-start">12</property>
+                            <property name="margin-end">12</property>
                     <child>
                       <object class="GtkLabel" id="metadata_intro_label">
                         <property name="wrap">true</property>
@@ -363,11 +372,15 @@
                         </child>
                       </object>
                     </child>
-                    <child>
-                      <object class="GtkButton" id="metadata_apply_button">
-                        <property name="label">Apply Metadata Overrides</property>
-                        <property name="css-classes">control-button</property>
-                        <property name="halign">start</property>
+                            <child>
+                              <object class="GtkButton" id="metadata_apply_button">
+                                <property name="label">Apply Metadata Overrides</property>
+                                <property name="css-classes">control-button</property>
+                                <property name="halign">start</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
                       </object>
                     </child>
                   </object>
