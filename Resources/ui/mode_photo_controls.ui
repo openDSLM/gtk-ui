@@ -1,73 +1,103 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.96.1 -->
 <interface>
   <!-- interface-name mode_photo_controls.ui -->
   <requires lib="gtk" version="4.0"/>
-
   <object class="GtkBox" id="photo_controls_box">
     <property name="hexpand">true</property>
     <property name="orientation">horizontal</property>
-    <property name="spacing">12</property>
-    <property name="css-classes">photo-controls-row</property>
+    <property name="spacing">24</property>
+    <property name="valign">center</property>
     <child>
-      <object class="GtkBox" id="auto_row">
-        <property name="orientation">horizontal</property>
+      <object class="GtkBox" id="auto_group">
+        <property name="orientation">vertical</property>
         <property name="spacing">6</property>
-        <property name="css-classes">inline-control</property>
         <child>
           <object class="GtkLabel" id="auto_label">
-            <property name="label">AUTO</property>
-            <property name="wrap">true</property>
-            <property name="css-classes">inline-label</property>
+            <property name="label">Auto exposure</property>
+            <property name="css-classes">dim-label</property>
+            <property name="halign">start</property>
           </object>
         </child>
         <child>
           <object class="GtkCheckButton" id="auto_toggle">
+            <property name="label">Enabled</property>
             <property name="active">true</property>
-            <property name="css-classes">control-toggle</property>
+            <property name="halign">start</property>
           </object>
         </child>
       </object>
     </child>
     <child>
       <object class="GtkBox" id="iso_group">
-        <property name="orientation">horizontal</property>
+        <property name="orientation">vertical</property>
         <property name="spacing">6</property>
-        <property name="css-classes">inline-control</property>
         <child>
           <object class="GtkLabel" id="iso_label">
             <property name="label">ISO</property>
-            <property name="css-classes">inline-label</property>
+            <property name="css-classes">dim-label</property>
+            <property name="halign">start</property>
           </object>
         </child>
         <child>
           <object class="GtkComboBoxText" id="iso_combo">
-            <property name="css-classes">control-input compact-input</property>
+            <property name="halign">fill</property>
+            <property name="hexpand">true</property>
           </object>
         </child>
       </object>
     </child>
     <child>
       <object class="GtkBox" id="shutter_group">
-        <property name="orientation">horizontal</property>
+        <property name="orientation">vertical</property>
         <property name="spacing">6</property>
-        <property name="css-classes">inline-control</property>
         <child>
           <object class="GtkLabel" id="shutter_label">
-            <property name="label">SHUTTER</property>
-            <property name="css-classes">inline-label</property>
+            <property name="label">Shutter</property>
+            <property name="css-classes">dim-label</property>
+            <property name="halign">start</property>
           </object>
         </child>
         <child>
           <object class="GtkComboBoxText" id="shutter_combo">
-            <property name="css-classes">control-input compact-input</property>
+            <property name="halign">fill</property>
+            <property name="hexpand">true</property>
           </object>
         </child>
       </object>
     </child>
     <child>
-      <object class="GtkButton" id="capture_button">
-        <property name="css-classes">control-button capture-button</property>
+      <object class="GtkBox" id="capture_group">
+        <property name="orientation">vertical</property>
+        <property name="spacing">6</property>
+        <child>
+          <object class="GtkLabel" id="capture_label">
+            <property name="label">Capture</property>
+            <property name="css-classes">dim-label</property>
+            <property name="halign">start</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkButton" id="capture_button">
+            <property name="css-classes">suggested-action</property>
+            <child>
+              <object class="GtkBox" id="capture_button_content">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">6</property>
+                <child>
+                  <object class="GtkImage" id="capture_button_icon">
+                    <property name="icon-name">camera-photo-symbolic</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="capture_button_label">
+                    <property name="label">Capture</property>
+                    <property name="halign">start</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
       </object>
     </child>
   </object>

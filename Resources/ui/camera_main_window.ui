@@ -1,21 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Layout generated for Cambalache editing -->
 <interface>
   <requires lib="gtk" version="4.0"/>
   <requires lib="adw" version="1.0"/>
-  <object class="GtkApplicationWindow" id="main_window">
+  <object class="AdwApplicationWindow" id="main_window">
     <property name="default-width">1280</property>
     <property name="default-height">720</property>
     <property name="title">openDSLM – Live Preview + RAW (DNG)</property>
     <child>
-      <object class="GtkOverlay" id="main_root_overlay">
+      <object class="GtkBox" id="main_root">
         <property name="hexpand">true</property>
         <property name="vexpand">true</property>
+        <property name="orientation">vertical</property>
         <child>
-          <object class="GtkStack" id="page_stack">
+          <object class="AdwHeaderBar" id="top_header">
+            <property name="title-widget">
+              <object class="AdwViewSwitcherTitle" id="view_switcher_title">
+                <property name="title">openDSLM</property>
+                <property name="stack">page_stack</property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkOverlay" id="main_root_overlay">
             <property name="hexpand">true</property>
             <property name="vexpand">true</property>
-            <property name="transition-type">slide-left-right</property>
+            <child>
+              <object class="AdwViewStack" id="page_stack">
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwViewSwitcherBar" id="view_switcher_bar">
+            <property name="stack">page_stack</property>
           </object>
         </child>
       </object>

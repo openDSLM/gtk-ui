@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Adw;
 using Gtk;
 
 /// <summary>
@@ -38,21 +39,15 @@ public sealed class MainWindowBuilder
     {
         using var mainBuilder = Builder.NewFromFile(ResolveLayoutPath(MainLayoutFileName));
 
-        var window = Require<Gtk.ApplicationWindow>(mainBuilder, "main_window");
+        var window = Require<Adw.ApplicationWindow>(mainBuilder, "main_window");
+        var stack = Require<Adw.ViewStack>(mainBuilder, "page_stack");
         window.SetApplication(app);
         window.AddCssClass("camera-window");
-        var stack = Require<Stack>(mainBuilder, "page_stack");
-        if (!fullscreenMode)
-        {
-            InstallHeaderBar(window);
-        }
 
         using var liveBuilder = Builder.NewFromFile(ResolveLayoutPath(LiveLayoutFileName));
         var liveOverlay = Require<Overlay>(liveBuilder, "live_overlay");
         var picture = Require<Picture>(liveBuilder, "live_picture");
         var hud = Require<Label>(liveBuilder, "hud_label");
-        var settingsButton = Require<Button>(liveBuilder, "settings_button");
-        var galleryButton = Require<Button>(liveBuilder, "gallery_button");
         var modeStack = Require<Stack>(liveBuilder, "mode_stack");
 
         using var photoBuilder = Builder.NewFromFile(ResolveLayoutPath(PhotoControlsLayoutFileName));
@@ -66,11 +61,9 @@ public sealed class MainWindowBuilder
         modeStack.SetVisibleChild(photoRoot);
 
         var photoView = new PhotoControlsView(photoRoot, autoToggle, isoBox, shutterBox, captureButton);
-        ApplyButtonIcons(settingsButton, galleryButton, captureButton);
 
         using var settingsBuilder = Builder.NewFromFile(ResolveLayoutPath(SettingsLayoutFileName));
-        var settingsRoot = Require<Box>(settingsBuilder, "settings_root");
-        var settingsCloseButton = Require<Button>(settingsBuilder, "settings_close_button");
+        var settingsRoot = Require<Widget>(settingsBuilder, "settings_root");
         var settingsResolutionCombo = Require<ComboBoxText>(settingsBuilder, "settings_resolution_combo");
         var outputDirEntry = Require<Entry>(settingsBuilder, "output_dir_entry");
         var outputDirApplyButton = Require<Button>(settingsBuilder, "output_dir_apply_button");
@@ -96,7 +89,6 @@ public sealed class MainWindowBuilder
 
         var settingsView = new CameraSettingsView(
             settingsRoot,
-            settingsCloseButton,
             settingsResolutionCombo,
             outputDirEntry,
             outputDirApplyButton,
@@ -170,7 +162,7 @@ public sealed class MainWindowBuilder
         ConfigureMetadataSettings(settingsView);
         ConfigureInfoPage(settingsView);
         ConfigureDebugSettings(settingsView, app);
-        ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
+        ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, galleryView);
 
         StyleInstaller.TryInstall();
 
@@ -181,87 +173,12 @@ public sealed class MainWindowBuilder
             window,
             picture,
             hud,
-            settingsButton,
-            galleryButton,
             photoView,
             stack,
             liveOverlay,
             settingsView,
             galleryView.Root,
             galleryView);
-    }
-
-    private static void InstallHeaderBar(Gtk.ApplicationWindow window)
-    {
-        var headerBar = Gtk.HeaderBar.New();
-        headerBar.ShowTitleButtons = true;
-        var titleLabel = Gtk.Label.New($"openDSLM v{AppVersion.Current} – Live Preview + RAW");
-        headerBar.SetTitleWidget(titleLabel);
-
-        window.SetTitlebar(headerBar);
-    }
-
-    private void ApplyButtonIcons(Button settingsButton, Button galleryButton, Button captureButton)
-    {
-        SetButtonIcon(settingsButton, "settings-symbolic.svg");
-        SetButtonIcon(galleryButton, "gallery-symbolic.svg");
-        SetCaptureButtonIcon(captureButton, "capture-symbolic.svg");
-    }
-
-    private static void SetButtonIcon(Button button, string iconFile)
-    {
-        var path = ResolveIconPath(iconFile);
-        if (path is null)
-        {
-            return;
-        }
-
-        var picture = Picture.NewForFilename(path);
-        picture.CanShrink = true;
-        picture.WidthRequest = 32;
-        picture.HeightRequest = 32;
-        picture.AddCssClass("icon-image");
-        button.SetChild(picture);
-    }
-
-    private static void SetCaptureButtonIcon(Button button, string iconFile)
-    {
-        var path = ResolveIconPath(iconFile);
-        if (path is null)
-        {
-            return;
-        }
-
-        var picture = Picture.NewForFilename(path);
-        picture.CanShrink = true;
-        picture.WidthRequest = 20;
-        picture.HeightRequest = 20;
-        picture.AddCssClass("icon-image");
-
-        var label = Gtk.Label.New("CAPTURE");
-        label.AddCssClass("capture-label");
-
-        var box = Gtk.Box.New(Orientation.Horizontal, 6);
-        box.Append(picture);
-        box.Append(label);
-
-        button.SetChild(box);
-    }
-
-    private static string? ResolveIconPath(string fileName)
-    {
-        string? baseDir = AppContext.BaseDirectory;
-        if (!string.IsNullOrEmpty(baseDir))
-        {
-            string candidate = Path.Combine(baseDir, "Resources", "icons", "hicolor", "scalable", "actions", fileName);
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-        }
-
-        string fallback = Path.Combine(Environment.CurrentDirectory, "Resources", "icons", "hicolor", "scalable", "actions", fileName);
-        return File.Exists(fallback) ? fallback : null;
     }
 
     private static T Require<T>(Builder builder, string id) where T : class
@@ -549,60 +466,65 @@ public sealed class MainWindowBuilder
     }
 
     private void ConfigureNavigation(
-        Stack stack,
+        ViewStack stack,
         Widget livePage,
         Widget settingsPage,
         Widget galleryPage,
-        Button settingsButton,
-        Button settingsCloseButton,
-        Button galleryButton,
         GalleryView galleryView)
     {
+        ArgumentNullException.ThrowIfNull(stack);
+        ArgumentNullException.ThrowIfNull(livePage);
+        ArgumentNullException.ThrowIfNull(settingsPage);
+        ArgumentNullException.ThrowIfNull(galleryPage);
+
         livePage.SetName("live-view");
         settingsPage.SetName("settings-view");
         galleryPage.SetName("gallery-view");
 
-        stack.AddChild(livePage);
-        stack.AddChild(settingsPage);
-        stack.AddChild(galleryPage);
+        static void ConfigurePage(ViewStackPage? page, string iconName)
+        {
+            if (page is null)
+            {
+                return;
+            }
+
+            page.SetIconName(iconName);
+        }
+
+        ConfigurePage(stack.AddTitled(livePage, "live-view", "Live"), "camera-photo-symbolic");
+        ConfigurePage(stack.AddTitled(settingsPage, "settings-view", "Settings"), "applications-system-symbolic");
+        ConfigurePage(stack.AddTitled(galleryPage, "gallery-view", "Gallery"), "view-grid-symbolic");
 
         void ShowLive()
         {
             stack.SetVisibleChild(livePage);
-            settingsButton.Sensitive = true;
-            galleryButton.Sensitive = true;
+            galleryView.EnsureGridVisible();
+        }
+
+        void EnterGallery()
+        {
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPage, new SetGalleryPagePayload(0));
+            _dispatcher.FireAndForget(AppActionId.LoadGallery);
             galleryView.EnsureGridVisible();
         }
 
         ShowLive();
 
-        settingsButton.OnClicked += (_, __) =>
-        {
-            if (!settingsButton.Sensitive) return;
-            stack.SetVisibleChild(settingsPage);
-            settingsButton.Sensitive = false;
-            galleryButton.Sensitive = true;
-        };
+        galleryView.BackRequested += (_, __) => ShowLive();
 
-        settingsCloseButton.OnClicked += (_, __) =>
+        stack.OnNotify += (_, args) =>
         {
-            ShowLive();
-        };
-
-        galleryButton.OnClicked += (_, __) =>
-        {
-            if (!galleryButton.Sensitive) return;
-            _dispatcher.FireAndForget(AppActionId.SetGalleryPage, new SetGalleryPagePayload(0));
-            _dispatcher.FireAndForget(AppActionId.LoadGallery);
-            stack.SetVisibleChild(galleryPage);
-            galleryButton.Sensitive = false;
-            settingsButton.Sensitive = true;
-            galleryView.EnsureGridVisible();
-        };
-
-        galleryView.BackRequested += (_, __) =>
-        {
-            ShowLive();
+            if (args.Pspec?.GetName() == "visible-child")
+            {
+                if (stack.VisibleChild == galleryPage)
+                {
+                    EnterGallery();
+                }
+                else if (stack.VisibleChild == livePage)
+                {
+                    galleryView.EnsureGridVisible();
+                }
+            }
         };
     }
 
@@ -799,4 +721,5 @@ public sealed class MainWindowBuilder
     {
         entry.SetText(text ?? string.Empty);
     }
+
 }

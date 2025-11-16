@@ -1,460 +1,295 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.96.1 -->
-<!-- Settings placeholder generated for Cambalache editing -->
 <interface>
-  <!-- interface-name camera_settings_page.ui -->
   <requires lib="gtk" version="4.0"/>
-  <object class="GtkBox" id="settings_root">
-    <property name="css-classes">settings-page</property>
+  <requires lib="adw" version="1.0"/>
+  <object class="GtkScrolledWindow" id="settings_root">
     <property name="hexpand">true</property>
-    <property name="margin-bottom">0</property>
-    <property name="margin-end">0</property>
-    <property name="margin-start">0</property>
-    <property name="margin-top">0</property>
-    <property name="orientation">vertical</property>
-    <property name="spacing">16</property>
     <property name="vexpand">true</property>
+    <property name="propagate-natural-height">true</property>
     <child>
-      <object class="GtkBox" id="settings_header_box">
-        <property name="orientation">horizontal</property>
-        <property name="spacing">12</property>
-        <property name="halign">fill</property>
+      <object class="AdwClamp" id="settings_clamp">
+        <property name="maximum-size">900</property>
         <child>
-          <object class="GtkButton" id="settings_close_button">
-            <property name="css-classes">back-button</property>
-            <property name="label">Back</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="settings_title">
-            <property name="css-classes">settings-title</property>
-            <property name="halign">start</property>
-            <property name="label">Settings</property>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="GtkBox" id="settings_content_box">
-        <property name="css-classes">settings-content</property>
-        <property name="hexpand">true</property>
-        <property name="orientation">horizontal</property>
-        <property name="spacing">24</property>
-        <property name="vexpand">true</property>
-        <child>
-          <object class="GtkFrame" id="settings_sidebar_frame">
-            <property name="css-classes">settings-sidebar-frame</property>
+          <object class="AdwPreferencesPage" id="settings_page">
+            <property name="title">Settings</property>
             <child>
-              <object class="GtkStackSidebar" id="settings_sidebar">
-                <property name="stack">settings_stack</property>
+              <object class="AdwPreferencesGroup" id="capture_group">
+                <property name="title">Capture</property>
+                <child>
+                  <object class="AdwActionRow" id="settings_resolution_row">
+                    <property name="title">Still resolution</property>
+                    <child type="suffix">
+                      <object class="GtkComboBoxText" id="settings_resolution_combo"/>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
-          </object>
-        </child>
-        <child>
-          <object class="GtkStack" id="settings_stack">
-            <property name="css-classes">settings-content-panel</property>
-            <property name="hexpand">true</property>
-            <property name="vexpand">true</property>
             <child>
-              <object class="GtkStackPage" id="settings_capture_page">
-                <property name="name">capture</property>
-                <property name="title">Capture</property>
-                <property name="child">
-                  <object class="GtkBox" id="settings_capture_box">
-                    <property name="orientation">vertical</property>
-                    <property name="spacing">12</property>
-                    <property name="vexpand">true</property>
-                    <child>
-                      <object class="GtkFrame" id="capture_settings_frame">
+              <object class="AdwPreferencesGroup" id="storage_group">
+                <property name="title">Storage</property>
+                <child>
+                  <object class="AdwActionRow" id="output_dir_row">
+                    <property name="title">Output directory</property>
+                    <property name="subtitle">Photos are written to this folder</property>
+                    <child type="suffix">
+                      <object class="GtkEntry" id="output_dir_entry">
                         <property name="hexpand">true</property>
-                        <property name="label">Exposure</property>
-                        <property name="label-xalign">0.0</property>
-                        <child>
-                          <object class="GtkBox" id="capture_settings_box">
-                            <property name="margin-bottom">16</property>
-                            <property name="margin-end">16</property>
-                            <property name="margin-start">16</property>
-                            <property name="margin-top">16</property>
-                            <property name="orientation">vertical</property>
-                            <property name="spacing">10</property>
-                            <child>
-                              <object class="GtkLabel" id="settings_resolution_label">
-                                <property name="css-classes">settings-section-label</property>
-                                <property name="label">Still Resolution</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkComboBoxText" id="settings_resolution_combo">
-                                <property name="css-classes">settings-input</property>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
                       </object>
                     </child>
-                    <child>
-                      <object class="GtkFrame" id="storage_settings_frame">
-                        <property name="hexpand">true</property>
-                        <property name="label">Storage</property>
-                        <property name="label-xalign">0.0</property>
+                    <child type="suffix">
+                      <object class="GtkButton" id="output_dir_apply_button">
+                        <property name="label">Apply</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwPreferencesGroup" id="gallery_group">
+                <property name="title">Gallery</property>
+                <child>
+                  <object class="AdwActionRow" id="gallery_page_size_row">
+                    <property name="title">Grid rows</property>
+                    <child type="suffix">
+                      <object class="GtkBox" id="gallery_page_size_control">
+                        <property name="spacing">6</property>
                         <child>
-                          <object class="GtkBox" id="storage_settings_box">
-                            <property name="margin-bottom">16</property>
-                            <property name="margin-end">16</property>
-                            <property name="margin-start">16</property>
-                            <property name="margin-top">16</property>
-                            <property name="orientation">vertical</property>
-                            <property name="spacing">10</property>
-                            <child>
-                              <object class="GtkLabel" id="output_dir_label">
-                                <property name="css-classes">settings-section-label</property>
-                                <property name="label">Output Directory</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkBox" id="output_dir_row">
-                                <property name="orientation">horizontal</property>
-                                <property name="spacing">10</property>
-                                <child>
-                                  <object class="GtkEntry" id="output_dir_entry">
-                                    <property name="css-classes">settings-input</property>
-                                    <property name="hexpand">true</property>
-                                    <property name="placeholder-text">/ssd/RAW</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkButton" id="output_dir_apply_button">
-                                    <property name="css-classes">control-button</property>
-                                    <property name="label">Apply</property>
-                                  </object>
-                                </child>
-                              </object>
-                            </child>
+                          <object class="GtkButton" id="gallery_page_size_decrease_button">
+                            <property name="label">−</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="gallery_page_size_value">
+                            <property name="label">2</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="gallery_page_size_increase_button">
+                            <property name="label">+</property>
                           </object>
                         </child>
                       </object>
                     </child>
                   </object>
-                </property>
+                </child>
+                <child>
+                  <object class="AdwActionRow" id="gallery_color_row">
+                    <property name="title">RAW thumbnails</property>
+                    <property name="subtitle">Decode DNG files instead of using embedded previews (slower)</property>
+                    <child type="suffix">
+                      <object class="GtkCheckButton" id="gallery_color_toggle"/>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="gallery_color_hint">
+                    <property name="wrap">true</property>
+                    <property name="css-classes">dim-label</property>
+                    <property name="label">Embedded previews load instantly; enabling this decodes the RAW to build thumbnails and dramatically slows pagination.</property>
+                  </object>
+                </child>
               </object>
             </child>
             <child>
-              <object class="GtkStackPage" id="settings_gallery_page">
-                <property name="name">gallery</property>
-                <property name="title">Gallery</property>
-                <property name="child">
-                  <object class="GtkBox" id="gallery_settings_box">
+              <object class="AdwPreferencesGroup" id="metadata_group">
+                <property name="title">Metadata</property>
+                <child>
+                  <object class="GtkLabel" id="metadata_intro_label">
+                    <property name="wrap">true</property>
+                    <property name="label">Leave a field blank to use the default reported by the camera.</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkBox" id="metadata_overrides_box">
                     <property name="orientation">vertical</property>
                     <property name="spacing">12</property>
-                    <property name="margin-top">12</property>
-                    <property name="margin-bottom">12</property>
-                    <property name="margin-start">12</property>
-                    <property name="margin-end">12</property>
                     <child>
-                      <object class="GtkBox" id="gallery_page_size_row">
-                        <property name="orientation">horizontal</property>
-                        <property name="spacing">8</property>
-                        <property name="halign">start</property>
+                      <object class="GtkBox" id="metadata_make_row">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">4</property>
                         <child>
-                          <object class="GtkLabel" id="gallery_page_size_label">
-                            <property name="label">Grid rows</property>
+                          <object class="GtkLabel" id="metadata_make_label">
+                            <property name="label">Make</property>
                             <property name="halign">start</property>
                           </object>
                         </child>
                         <child>
-                          <object class="GtkBox" id="gallery_page_size_control">
-                            <property name="css-classes">gallery-rows-control</property>
-                            <property name="spacing">8</property>
-                            <child>
-                              <object class="GtkButton" id="gallery_page_size_decrease_button">
-                                <property name="label">−</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkLabel" id="gallery_page_size_value">
-                                <property name="label">2</property>
-                                <property name="css-classes">gallery-rows-value</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="gallery_page_size_increase_button">
-                                <property name="label">+</property>
-                              </object>
-                            </child>
+                          <object class="GtkEntry" id="metadata_make_entry">
+                            <property name="hexpand">true</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="metadata_make_effective_label">
+                            <property name="visible">false</property>
+                            <property name="css-classes">dim-label</property>
                           </object>
                         </child>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkCheckButton" id="gallery_color_toggle">
-                        <property name="label">Create thumbnail from DNG instead of using embedded preview (slow!!!!!)</property>
-                        <property name="active">true</property>
+                      <object class="GtkBox" id="metadata_model_row">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">4</property>
+                        <child>
+                          <object class="GtkLabel" id="metadata_model_label">
+                            <property name="label">Model</property>
+                            <property name="halign">start</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="metadata_model_entry">
+                            <property name="hexpand">true</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="metadata_model_effective_label">
+                            <property name="visible">false</property>
+                            <property name="css-classes">dim-label</property>
+                          </object>
+                        </child>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkLabel" id="gallery_color_hint">
-                        <property name="wrap">true</property>
-                        <property name="css-classes">gallery-settings-hint</property>
-                        <property name="label">Embedded previews load instantly; enabling this decodes the RAW to build thumbnails and dramatically slows pagination.</property>
+                      <object class="GtkBox" id="metadata_unique_row">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">4</property>
+                        <child>
+                          <object class="GtkLabel" id="metadata_unique_label">
+                            <property name="label">Unique model</property>
+                            <property name="halign">start</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="metadata_unique_entry">
+                            <property name="hexpand">true</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="metadata_unique_effective_label">
+                            <property name="visible">false</property>
+                            <property name="css-classes">dim-label</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkBox" id="metadata_software_row">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">4</property>
+                        <child>
+                          <object class="GtkLabel" id="metadata_software_label">
+                            <property name="label">Software</property>
+                            <property name="halign">start</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="metadata_software_entry">
+                            <property name="hexpand">true</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="metadata_software_effective_label">
+                            <property name="visible">false</property>
+                            <property name="css-classes">dim-label</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkBox" id="metadata_artist_row">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">4</property>
+                        <child>
+                          <object class="GtkLabel" id="metadata_artist_label">
+                            <property name="label">Author / Artist</property>
+                            <property name="halign">start</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="metadata_artist_entry">
+                            <property name="hexpand">true</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="metadata_artist_effective_label">
+                            <property name="visible">false</property>
+                            <property name="css-classes">dim-label</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkBox" id="metadata_copyright_row">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">4</property>
+                        <child>
+                          <object class="GtkLabel" id="metadata_copyright_label">
+                            <property name="label">Copyright / Credits</property>
+                            <property name="halign">start</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="metadata_copyright_entry">
+                            <property name="hexpand">true</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="metadata_copyright_effective_label">
+                            <property name="visible">false</property>
+                            <property name="css-classes">dim-label</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkButton" id="metadata_apply_button">
+                        <property name="label">Apply metadata overrides</property>
+                        <property name="halign">start</property>
                       </object>
                     </child>
                   </object>
-                </property>
+                </child>
               </object>
             </child>
             <child>
-              <object class="GtkStackPage" id="settings_metadata_page">
-                <property name="name">metadata</property>
-                <property name="title">Metadata</property>
-                <property name="child">
-                  <object class="GtkScrolledWindow" id="metadata_scroller">
-                    <property name="hexpand">true</property>
-                    <property name="vexpand">true</property>
-                    <property name="propagate-natural-height">false</property>
-                    <property name="propagate-natural-width">true</property>
-                    <child>
-                      <object class="GtkViewport">
-                        <property name="scroll-to-focus">true</property>
-                        <child>
-                          <object class="GtkBox" id="metadata_settings_box">
-                            <property name="orientation">vertical</property>
-                            <property name="spacing">12</property>
-                            <property name="margin-top">12</property>
-                            <property name="margin-bottom">12</property>
-                            <property name="margin-start">12</property>
-                            <property name="margin-end">12</property>
-                    <child>
-                      <object class="GtkLabel" id="metadata_intro_label">
-                        <property name="wrap">true</property>
-                        <property name="label">Leave a field blank to use the default reported by the camera.</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkFrame" id="metadata_overrides_frame">
-                        <property name="hexpand">true</property>
-                        <property name="label">Overrides</property>
-                        <property name="label-xalign">0.0</property>
-                        <child>
-                          <object class="GtkBox" id="metadata_overrides_box">
-                            <property name="orientation">vertical</property>
-                            <property name="spacing">10</property>
-                            <property name="margin-start">12</property>
-                            <property name="margin-end">12</property>
-                            <property name="margin-top">12</property>
-                            <property name="margin-bottom">12</property>
-                            <child>
-                              <object class="GtkBox" id="metadata_make_row">
-                                <property name="orientation">vertical</property>
-                                <property name="spacing">4</property>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_make_label">
-                                    <property name="label">Make</property>
-                                    <property name="halign">start</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkEntry" id="metadata_make_entry">
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                            <child>
-                              <object class="GtkLabel" id="metadata_make_effective_label">
-                                <property name="visible">false</property>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
-                            <child>
-                              <object class="GtkBox" id="metadata_model_row">
-                                <property name="orientation">vertical</property>
-                                <property name="spacing">4</property>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_model_label">
-                                    <property name="label">Model</property>
-                                    <property name="halign">start</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkEntry" id="metadata_model_entry">
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                            <child>
-                              <object class="GtkLabel" id="metadata_model_effective_label">
-                                <property name="visible">false</property>
-                              </object>
-                            </child>
-                          </object>
-                            </child>
-                            <child>
-                              <object class="GtkBox" id="metadata_unique_row">
-                                <property name="orientation">vertical</property>
-                                <property name="spacing">4</property>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_unique_label">
-                                    <property name="label">Unique Model</property>
-                                    <property name="halign">start</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkEntry" id="metadata_unique_entry">
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                            <child>
-                              <object class="GtkLabel" id="metadata_unique_effective_label">
-                                <property name="visible">false</property>
-                              </object>
-                            </child>
-                          </object>
-                            </child>
-                            <child>
-                              <object class="GtkBox" id="metadata_software_row">
-                                <property name="orientation">vertical</property>
-                                <property name="spacing">4</property>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_software_label">
-                                    <property name="label">Software</property>
-                                    <property name="halign">start</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkEntry" id="metadata_software_entry">
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                            <child>
-                              <object class="GtkLabel" id="metadata_software_effective_label">
-                                <property name="visible">false</property>
-                              </object>
-                            </child>
-                          </object>
-                            </child>
-                            <child>
-                              <object class="GtkBox" id="metadata_artist_row">
-                                <property name="orientation">vertical</property>
-                                <property name="spacing">4</property>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_artist_label">
-                                    <property name="label">Author / Artist</property>
-                                    <property name="halign">start</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkEntry" id="metadata_artist_entry">
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                            <child>
-                              <object class="GtkLabel" id="metadata_artist_effective_label">
-                                <property name="visible">false</property>
-                              </object>
-                            </child>
-                          </object>
-                            </child>
-                            <child>
-                              <object class="GtkBox" id="metadata_copyright_row">
-                                <property name="orientation">vertical</property>
-                                <property name="spacing">4</property>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_copyright_label">
-                                    <property name="label">Copyright / Credits</property>
-                                    <property name="halign">start</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkEntry" id="metadata_copyright_entry">
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                            <child>
-                              <object class="GtkLabel" id="metadata_copyright_effective_label">
-                                <property name="visible">false</property>
-                              </object>
-                            </child>
-                          </object>
-                            </child>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                            <child>
-                              <object class="GtkButton" id="metadata_apply_button">
-                                <property name="label">Apply Metadata Overrides</property>
-                                <property name="css-classes">control-button</property>
-                                <property name="halign">start</property>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                  </object>
-                </property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkStackPage" id="settings_info_page">
-                <property name="name">info</property>
+              <object class="AdwPreferencesGroup" id="info_group">
                 <property name="title">Info</property>
-                <property name="child">
-                  <object class="GtkBox" id="info_settings_box">
-                    <property name="orientation">vertical</property>
-                    <property name="spacing">12</property>
-                    <property name="margin-top">12</property>
-                    <property name="margin-bottom">12</property>
-                    <property name="margin-start">12</property>
-                    <property name="margin-end">12</property>
-                    <child>
-                      <object class="GtkLabel" id="info_version_label">
-                        <property name="wrap">true</property>
-                        <property name="css-classes">settings-section-label</property>
-                        <property name="label">Version</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkLabel" id="info_summary_label">
-                        <property name="wrap">true</property>
-                        <property name="label">This UI is part of the openDSLM stack and bundles vector glyphs from Heroicons for its toolbar buttons.</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkLinkButton" id="info_heroicons_link">
-                        <property name="label">Heroicons – MIT Licensed</property>
-                        <property name="uri">https://heroicons.com</property>
-                      </object>
-                    </child>
+                <child>
+                  <object class="GtkLabel" id="info_version_label">
+                    <property name="wrap">true</property>
+                    <property name="label">Version</property>
                   </object>
-                </property>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="info_summary_label">
+                    <property name="wrap">true</property>
+                    <property name="label">This UI is part of the openDSLM stack and bundles vector glyphs from Heroicons for its toolbar buttons.</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLinkButton" id="info_heroicons_link">
+                    <property name="label">Heroicons – MIT licensed</property>
+                    <property name="uri">https://heroicons.com</property>
+                  </object>
+                </child>
               </object>
             </child>
             <child>
-              <object class="GtkStackPage" id="settings_debug_page">
-                <property name="name">debug</property>
+              <object class="AdwPreferencesGroup" id="debug_group">
                 <property name="title">Debug</property>
-                <property name="child">
-                  <object class="GtkBox" id="debug_settings_box">
-                    <property name="orientation">vertical</property>
-                    <property name="spacing">12</property>
-                    <property name="margin-top">12</property>
-                    <property name="margin-bottom">12</property>
-                    <property name="margin-start">12</property>
-                    <property name="margin-end">12</property>
-                    <child>
-                      <object class="GtkLabel" id="debug_exit_hint">
-                        <property name="wrap">true</property>
-                        <property name="label">Force-close the UI if it becomes unresponsive or you need to restart the daemon.</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkButton" id="debug_exit_button">
-                        <property name="css-classes">control-button</property>
-                        <property name="label">Exit Application</property>
-                      </object>
-                    </child>
+                <child>
+                  <object class="GtkLabel" id="debug_exit_hint">
+                    <property name="wrap">true</property>
+                    <property name="label">Force-close the UI if it becomes unresponsive or you need to restart the daemon.</property>
                   </object>
-                </property>
+                </child>
+                <child>
+                  <object class="GtkButton" id="debug_exit_button">
+                    <property name="label">Exit application</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>

@@ -1,11 +1,10 @@
 using Gtk;
 
 /// <summary>
-/// Aggregates widgets backing the settings stack so they can be wired to state/actions.
+/// Aggregates widgets backing the settings page so they can be wired to state/actions.
 /// </summary>
 public sealed record CameraSettingsView(
-    Box Root,
-    Button CloseButton,
+    Widget Root,
     ComboBoxText ResolutionCombo,
     Entry OutputDirectoryEntry,
     Button OutputDirectoryApplyButton,
