@@ -33,31 +33,38 @@
           </object>
         </child>
         <child>
-          <object class="GtkBox" id="gallery_rows_control">
-            <property name="css-classes">gallery-rows-control</property>
-            <property name="spacing">8</property>
+          <object class="GtkBox" id="gallery_rows_panel">
+            <property name="orientation">vertical</property>
+            <property name="spacing">4</property>
             <property name="halign">end</property>
             <property name="valign">center</property>
             <child>
               <object class="GtkLabel" id="gallery_rows_label">
                 <property name="label">Rows</property>
                 <property name="css-classes">gallery-rows-label</property>
+                <property name="halign">center</property>
               </object>
             </child>
             <child>
-              <object class="GtkButton" id="gallery_rows_decrease_button">
-                <property name="label">−</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkLabel" id="gallery_rows_value">
-                <property name="label">2</property>
-                <property name="css-classes">gallery-rows-value</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkButton" id="gallery_rows_increase_button">
-                <property name="label">+</property>
+              <object class="GtkBox" id="gallery_rows_control">
+                <property name="css-classes">gallery-rows-control</property>
+                <property name="spacing">8</property>
+                <child>
+                  <object class="GtkButton" id="gallery_rows_decrease_button">
+                    <property name="label">−</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="gallery_rows_value">
+                    <property name="label">2</property>
+                    <property name="css-classes">gallery-rows-value</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="gallery_rows_increase_button">
+                    <property name="label">+</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>

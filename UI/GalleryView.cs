@@ -9,6 +9,9 @@ using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
 using ImageMagick;
 
+/// <summary>
+/// Manages gallery pagination, thumbnail generation, and full-screen previewing.
+/// </summary>
 public sealed class GalleryView
 {
     private const int ThumbnailWidth = 240;
@@ -596,7 +599,7 @@ public sealed class GalleryView
             {
                 int width = Math.Max(1, (int)Math.Round(image.Width * scale));
                 int height = Math.Max(1, (int)Math.Round(image.Height * scale));
-                image.Resize(width, height);
+                image.Resize((uint)width, (uint)height);
             }
 
             string tempFile = Path.Combine(Path.GetTempPath(), $"opendslm-magick-{Guid.NewGuid():N}.jpg");

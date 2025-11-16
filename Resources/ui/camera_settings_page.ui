@@ -4,13 +4,6 @@
 <interface>
   <!-- interface-name camera_settings_page.ui -->
   <requires lib="gtk" version="4.0"/>
-  <object class="GtkAdjustment" id="gallery_page_size_adjustment">
-    <property name="lower">2</property>
-    <property name="upper">6</property>
-    <property name="step-increment">1</property>
-    <property name="page-increment">1</property>
-    <property name="value">2</property>
-  </object>
   <object class="GtkBox" id="settings_root">
     <property name="css-classes">settings-page</property>
     <property name="hexpand">true</property>
@@ -159,15 +152,10 @@
                     <property name="margin-start">12</property>
                     <property name="margin-end">12</property>
                     <child>
-                      <object class="GtkCheckButton" id="gallery_color_toggle">
-                        <property name="label">Enable color previews for RAW thumbnails</property>
-                        <property name="active">true</property>
-                      </object>
-                    </child>
-                    <child>
                       <object class="GtkBox" id="gallery_page_size_row">
                         <property name="orientation">horizontal</property>
                         <property name="spacing">8</property>
+                        <property name="halign">start</property>
                         <child>
                           <object class="GtkLabel" id="gallery_page_size_label">
                             <property name="label">Grid rows</property>
@@ -175,20 +163,40 @@
                           </object>
                         </child>
                         <child>
-                          <object class="GtkSpinButton" id="gallery_page_size_spin">
-                            <property name="adjustment">gallery_page_size_adjustment</property>
-                            <property name="numeric">true</property>
-                            <property name="value">2</property>
-                            <property name="halign">start</property>
+                          <object class="GtkBox" id="gallery_page_size_control">
+                            <property name="css-classes">gallery-rows-control</property>
+                            <property name="spacing">8</property>
+                            <child>
+                              <object class="GtkButton" id="gallery_page_size_decrease_button">
+                                <property name="label">−</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="gallery_page_size_value">
+                                <property name="label">2</property>
+                                <property name="css-classes">gallery-rows-value</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="gallery_page_size_increase_button">
+                                <property name="label">+</property>
+                              </object>
+                            </child>
                           </object>
                         </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkCheckButton" id="gallery_color_toggle">
+                        <property name="label">Create thumbnail from DNG instead of using embedded preview (slow!!!!!)</property>
+                        <property name="active">true</property>
                       </object>
                     </child>
                     <child>
                       <object class="GtkLabel" id="gallery_color_hint">
                         <property name="wrap">true</property>
                         <property name="css-classes">gallery-settings-hint</property>
-                        <property name="label">Disabling color previews shows embedded thumbnails only and speeds up pagination.</property>
+                        <property name="label">Embedded previews load instantly; enabling this decodes the RAW to build thumbnails and dramatically slows pagination.</property>
                       </object>
                     </child>
                   </object>
@@ -380,6 +388,69 @@
                             </child>
                           </object>
                         </child>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkStackPage" id="settings_info_page">
+                <property name="name">info</property>
+                <property name="title">Info</property>
+                <property name="child">
+                  <object class="GtkBox" id="info_settings_box">
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">12</property>
+                    <property name="margin-top">12</property>
+                    <property name="margin-bottom">12</property>
+                    <property name="margin-start">12</property>
+                    <property name="margin-end">12</property>
+                    <child>
+                      <object class="GtkLabel" id="info_version_label">
+                        <property name="wrap">true</property>
+                        <property name="css-classes">settings-section-label</property>
+                        <property name="label">Version</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="info_summary_label">
+                        <property name="wrap">true</property>
+                        <property name="label">This UI is part of the openDSLM stack and bundles vector glyphs from Heroicons for its toolbar buttons.</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLinkButton" id="info_heroicons_link">
+                        <property name="label">Heroicons – MIT Licensed</property>
+                        <property name="uri">https://heroicons.com</property>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkStackPage" id="settings_debug_page">
+                <property name="name">debug</property>
+                <property name="title">Debug</property>
+                <property name="child">
+                  <object class="GtkBox" id="debug_settings_box">
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">12</property>
+                    <property name="margin-top">12</property>
+                    <property name="margin-bottom">12</property>
+                    <property name="margin-start">12</property>
+                    <property name="margin-end">12</property>
+                    <child>
+                      <object class="GtkLabel" id="debug_exit_hint">
+                        <property name="wrap">true</property>
+                        <property name="label">Force-close the UI if it becomes unresponsive or you need to restart the daemon.</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkButton" id="debug_exit_button">
+                        <property name="css-classes">control-button</property>
+                        <property name="label">Exit Application</property>
                       </object>
                     </child>
                   </object>

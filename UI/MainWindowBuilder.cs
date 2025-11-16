@@ -2,6 +2,9 @@ using System;
 using System.IO;
 using Gtk;
 
+/// <summary>
+/// Responsible for loading GTK templates and binding UI controls to the camera state.
+/// </summary>
 public sealed class MainWindowBuilder
 {
     private const string MainLayoutFileName = "camera_main_window.ui";
@@ -18,8 +21,6 @@ public sealed class MainWindowBuilder
     private bool _suppressIsoChange;
     private bool _suppressShutterChange;
     private bool _suppressResolutionChange;
-    private bool _suppressZoomChange;
-    private bool _suppressPanChange;
     private const int MinGalleryRows = 2;
     private const int MaxGalleryRows = 6;
 
@@ -30,7 +31,10 @@ public sealed class MainWindowBuilder
         _controller = controller;
     }
 
-    public CameraWindow Build(Gtk.Application app)
+    /// <summary>
+    /// Constructs the main window, connecting signals and returning the bound UI shell.
+    /// </summary>
+    public CameraWindow Build(Gtk.Application app, bool fullscreenMode)
     {
         using var mainBuilder = Builder.NewFromFile(ResolveLayoutPath(MainLayoutFileName));
 
@@ -38,7 +42,10 @@ public sealed class MainWindowBuilder
         window.SetApplication(app);
         window.AddCssClass("camera-window");
         var stack = Require<Stack>(mainBuilder, "page_stack");
-        InstallHeaderBar(window);
+        if (!fullscreenMode)
+        {
+            InstallHeaderBar(window);
+        }
 
         using var liveBuilder = Builder.NewFromFile(ResolveLayoutPath(LiveLayoutFileName));
         var liveOverlay = Require<Overlay>(liveBuilder, "live_overlay");
@@ -68,7 +75,11 @@ public sealed class MainWindowBuilder
         var outputDirEntry = Require<Entry>(settingsBuilder, "output_dir_entry");
         var outputDirApplyButton = Require<Button>(settingsBuilder, "output_dir_apply_button");
         var galleryColorToggle = Require<CheckButton>(settingsBuilder, "gallery_color_toggle");
-        var galleryPageSizeSpin = Require<SpinButton>(settingsBuilder, "gallery_page_size_spin");
+        var galleryRowsDecreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_decrease_button");
+        var galleryRowsValueLabelSettings = Require<Label>(settingsBuilder, "gallery_page_size_value");
+        var galleryRowsIncreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_increase_button");
+        var infoVersionLabel = Require<Label>(settingsBuilder, "info_version_label");
+        var debugExitButton = Require<Button>(settingsBuilder, "debug_exit_button");
         var metadataMakeEntry = Require<Entry>(settingsBuilder, "metadata_make_entry");
         var metadataMakeEffectiveLabel = Require<Label>(settingsBuilder, "metadata_make_effective_label");
         var metadataModelEntry = Require<Entry>(settingsBuilder, "metadata_model_entry");
@@ -90,7 +101,11 @@ public sealed class MainWindowBuilder
             outputDirEntry,
             outputDirApplyButton,
             galleryColorToggle,
-            galleryPageSizeSpin,
+            galleryRowsDecreaseButtonSettings,
+            galleryRowsValueLabelSettings,
+            galleryRowsIncreaseButtonSettings,
+            infoVersionLabel,
+            debugExitButton,
             metadataMakeEntry,
             metadataMakeEffectiveLabel,
             metadataModelEntry,
@@ -151,8 +166,10 @@ public sealed class MainWindowBuilder
         ConfigureResolutionCombo(settingsView.ResolutionCombo);
         ConfigureSettingsPanel(settingsView);
         ConfigureGallerySettings(settingsView);
-        ConfigureGalleryRowsControl(galleryRowsValueLabel, galleryRowsDecreaseButton, galleryRowsIncreaseButton, galleryView);
+        ConfigureGalleryRowsControl(galleryRowsValueLabel, galleryRowsDecreaseButton, galleryRowsIncreaseButton, rows => galleryView.SetGridRows(rows));
         ConfigureMetadataSettings(settingsView);
+        ConfigureInfoPage(settingsView);
+        ConfigureDebugSettings(settingsView, app);
         ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
 
         StyleInstaller.TryInstall();
@@ -178,7 +195,7 @@ public sealed class MainWindowBuilder
     {
         var headerBar = Gtk.HeaderBar.New();
         headerBar.ShowTitleButtons = true;
-        var titleLabel = Gtk.Label.New("openDSLM – Live Preview + RAW");
+        var titleLabel = Gtk.Label.New($"openDSLM v{AppVersion.Current} – Live Preview + RAW");
         headerBar.SetTitleWidget(titleLabel);
 
         window.SetTitlebar(headerBar);
@@ -409,33 +426,17 @@ public sealed class MainWindowBuilder
     private void ConfigureGallerySettings(CameraSettingsView settingsView)
     {
         var colorToggle = settingsView.GalleryColorToggle;
-        var pageSizeSpin = settingsView.GalleryPageSizeSpin;
         ArgumentNullException.ThrowIfNull(colorToggle);
-        ArgumentNullException.ThrowIfNull(pageSizeSpin);
 
         bool suppressToggle = false;
-        bool suppressPageSize = false;
 
         colorToggle.Active = _state.GalleryColorEnabled;
-        var pageSizeAdjustment = pageSizeSpin.Adjustment;
-        ArgumentNullException.ThrowIfNull(pageSizeAdjustment);
-        pageSizeAdjustment.Lower = MinGalleryRows;
-        pageSizeAdjustment.Upper = MaxGalleryRows;
-        pageSizeSpin.Value = _state.GalleryPageSize;
 
         colorToggle.OnToggled += (_, __) =>
         {
             if (suppressToggle) return;
             bool enabled = colorToggle.Active;
             _dispatcher.FireAndForget(AppActionId.SetGalleryColorEnabled, new SetGalleryColorEnabledPayload(enabled));
-        };
-
-        pageSizeSpin.OnValueChanged += (_, __) =>
-        {
-            if (suppressPageSize) return;
-            int requested = (int)Math.Round(pageSizeSpin.Value);
-            requested = Math.Clamp(requested, MinGalleryRows, MaxGalleryRows);
-            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(requested));
         };
 
         _state.GalleryColorEnabledChanged += (_, enabled) =>
@@ -445,27 +446,24 @@ public sealed class MainWindowBuilder
             suppressToggle = false;
         };
 
-        _state.GalleryPageSizeChanged += (_, size) =>
-        {
-            suppressPageSize = true;
-            pageSizeSpin.Value = size;
-            suppressPageSize = false;
-        };
+        ConfigureGalleryRowsControl(
+            settingsView.GalleryRowsValueLabel,
+            settingsView.GalleryRowsDecreaseButton,
+            settingsView.GalleryRowsIncreaseButton);
     }
 
-    private void ConfigureGalleryRowsControl(Label rowsValueLabel, Button decreaseButton, Button increaseButton, GalleryView galleryView)
+    private void ConfigureGalleryRowsControl(Label rowsValueLabel, Button decreaseButton, Button increaseButton, Action<int>? applyRows = null)
     {
         ArgumentNullException.ThrowIfNull(rowsValueLabel);
         ArgumentNullException.ThrowIfNull(decreaseButton);
         ArgumentNullException.ThrowIfNull(increaseButton);
-        ArgumentNullException.ThrowIfNull(galleryView);
 
         void UpdateRows(int rows)
         {
             rowsValueLabel.SetText(rows.ToString());
             decreaseButton.Sensitive = rows > MinGalleryRows;
             increaseButton.Sensitive = rows < MaxGalleryRows;
-            galleryView.SetGridRows(rows);
+            applyRows?.Invoke(rows);
         }
 
         UpdateRows(_state.GalleryPageSize);
@@ -523,6 +521,30 @@ public sealed class MainWindowBuilder
             {
                 settingsView.MetadataApplyButton.Sensitive = true;
             }
+        };
+    }
+
+    private void ConfigureInfoPage(CameraSettingsView settingsView)
+    {
+        ArgumentNullException.ThrowIfNull(settingsView);
+        if (settingsView.InfoVersionLabel is null)
+        {
+            return;
+        }
+
+        settingsView.InfoVersionLabel.SetText($"Version {AppVersion.Current}");
+    }
+
+    private void ConfigureDebugSettings(CameraSettingsView settingsView, Gtk.Application app)
+    {
+        ArgumentNullException.ThrowIfNull(settingsView);
+        ArgumentNullException.ThrowIfNull(app);
+        var exitButton = settingsView.DebugExitButton;
+        ArgumentNullException.ThrowIfNull(exitButton);
+
+        exitButton.OnClicked += (_, __) =>
+        {
+            app.Quit();
         };
     }
 

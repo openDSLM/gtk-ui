@@ -139,6 +139,17 @@ overlay label.hud-readout {
   background-color: rgba(30,30,30,0.9);
 }
 
+.settings-page .back-button {
+  background-color: @control_bg;
+  color: @window_fg_color;
+  border: 1px solid @control_border;
+  box-shadow: none;
+}
+
+.settings-page .back-button:hover {
+  background-color: shade(@control_bg, 0.95);
+}
+
 .icon-image {
   min-width: 28px;
   min-height: 28px;

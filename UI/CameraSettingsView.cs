@@ -1,5 +1,8 @@
 using Gtk;
 
+/// <summary>
+/// Aggregates widgets backing the settings stack so they can be wired to state/actions.
+/// </summary>
 public sealed record CameraSettingsView(
     Box Root,
     Button CloseButton,
@@ -7,7 +10,11 @@ public sealed record CameraSettingsView(
     Entry OutputDirectoryEntry,
     Button OutputDirectoryApplyButton,
     CheckButton GalleryColorToggle,
-    SpinButton GalleryPageSizeSpin,
+    Button GalleryRowsDecreaseButton,
+    Label GalleryRowsValueLabel,
+    Button GalleryRowsIncreaseButton,
+    Label InfoVersionLabel,
+    Button DebugExitButton,
     Entry MetadataMakeEntry,
     Label MetadataMakeEffectiveLabel,
     Entry MetadataModelEntry,
