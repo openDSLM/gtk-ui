@@ -39,15 +39,21 @@ public sealed class MainWindowBuilder
     {
         using var mainBuilder = Builder.NewFromFile(ResolveLayoutPath(MainLayoutFileName));
 
-        var window = Require<Adw.ApplicationWindow>(mainBuilder, "main_window");
+        var window = Require<Gtk.ApplicationWindow>(mainBuilder, "main_window");
         var stack = Require<Adw.ViewStack>(mainBuilder, "page_stack");
         window.SetApplication(app);
         window.AddCssClass("camera-window");
+        if (!fullscreenMode)
+        {
+            InstallHeaderBar(window);
+        }
 
         using var liveBuilder = Builder.NewFromFile(ResolveLayoutPath(LiveLayoutFileName));
         var liveOverlay = Require<Overlay>(liveBuilder, "live_overlay");
         var picture = Require<Picture>(liveBuilder, "live_picture");
         var hud = Require<Label>(liveBuilder, "hud_label");
+        var settingsButton = Require<Button>(liveBuilder, "settings_button");
+        var galleryButton = Require<Button>(liveBuilder, "gallery_button");
         var modeStack = Require<Stack>(liveBuilder, "mode_stack");
 
         using var photoBuilder = Builder.NewFromFile(ResolveLayoutPath(PhotoControlsLayoutFileName));
@@ -61,34 +67,54 @@ public sealed class MainWindowBuilder
         modeStack.SetVisibleChild(photoRoot);
 
         var photoView = new PhotoControlsView(photoRoot, autoToggle, isoBox, shutterBox, captureButton);
+        ApplyButtonIcons(settingsButton, galleryButton, captureButton);
 
         using var settingsBuilder = Builder.NewFromFile(ResolveLayoutPath(SettingsLayoutFileName));
-        var settingsRoot = Require<Widget>(settingsBuilder, "settings_root");
+        var settingsRoot = Require<Box>(settingsBuilder, "settings_root");
+        var settingsCloseButton = Require<Button>(settingsBuilder, "settings_close_button");
         var settingsResolutionCombo = Require<ComboBoxText>(settingsBuilder, "settings_resolution_combo");
         var outputDirEntry = Require<Entry>(settingsBuilder, "output_dir_entry");
         var outputDirApplyButton = Require<Button>(settingsBuilder, "output_dir_apply_button");
         var galleryColorToggle = Require<CheckButton>(settingsBuilder, "gallery_color_toggle");
-        var galleryRowsDecreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_decrease_button");
-        var galleryRowsValueLabelSettings = Require<Label>(settingsBuilder, "gallery_page_size_value");
-        var galleryRowsIncreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_increase_button");
+        var galleryRowsDecreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_decrease_button_settings");
+        var galleryRowsValueLabelSettings = Require<Label>(settingsBuilder, "gallery_page_size_value_settings");
+        var galleryRowsIncreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_increase_button_settings");
         var infoVersionLabel = Require<Label>(settingsBuilder, "info_version_label");
         var debugExitButton = Require<Button>(settingsBuilder, "debug_exit_button");
         var metadataMakeEntry = Require<Entry>(settingsBuilder, "metadata_make_entry");
-        var metadataMakeEffectiveLabel = Require<Label>(settingsBuilder, "metadata_make_effective_label");
         var metadataModelEntry = Require<Entry>(settingsBuilder, "metadata_model_entry");
-        var metadataModelEffectiveLabel = Require<Label>(settingsBuilder, "metadata_model_effective_label");
         var metadataUniqueEntry = Require<Entry>(settingsBuilder, "metadata_unique_entry");
-        var metadataUniqueEffectiveLabel = Require<Label>(settingsBuilder, "metadata_unique_effective_label");
         var metadataSoftwareEntry = Require<Entry>(settingsBuilder, "metadata_software_entry");
-        var metadataSoftwareEffectiveLabel = Require<Label>(settingsBuilder, "metadata_software_effective_label");
         var metadataArtistEntry = Require<Entry>(settingsBuilder, "metadata_artist_entry");
-        var metadataArtistEffectiveLabel = Require<Label>(settingsBuilder, "metadata_artist_effective_label");
         var metadataCopyrightEntry = Require<Entry>(settingsBuilder, "metadata_copyright_entry");
-        var metadataCopyrightEffectiveLabel = Require<Label>(settingsBuilder, "metadata_copyright_effective_label");
         var metadataApplyButton = Require<Button>(settingsBuilder, "metadata_apply_button");
+
+        var metadataMakeLabel = Require<Label>(settingsBuilder, "metadata_make_label");
+        var metadataModelLabel = Require<Label>(settingsBuilder, "metadata_model_label");
+        var metadataUniqueLabel = Require<Label>(settingsBuilder, "metadata_unique_label");
+        var metadataSoftwareLabel = Require<Label>(settingsBuilder, "metadata_software_label");
+        var metadataArtistLabel = Require<Label>(settingsBuilder, "metadata_artist_label");
+        var metadataCopyrightLabel = Require<Label>(settingsBuilder, "metadata_copyright_label");
+
+        var metadataEntrySizeGroup = SizeGroup.New(SizeGroupMode.Horizontal);
+        metadataEntrySizeGroup.AddWidget(metadataMakeEntry);
+        metadataEntrySizeGroup.AddWidget(metadataModelEntry);
+        metadataEntrySizeGroup.AddWidget(metadataUniqueEntry);
+        metadataEntrySizeGroup.AddWidget(metadataSoftwareEntry);
+        metadataEntrySizeGroup.AddWidget(metadataArtistEntry);
+        metadataEntrySizeGroup.AddWidget(metadataCopyrightEntry);
+
+        var metadataLabelSizeGroup = SizeGroup.New(SizeGroupMode.Horizontal);
+        metadataLabelSizeGroup.AddWidget(metadataMakeLabel);
+        metadataLabelSizeGroup.AddWidget(metadataModelLabel);
+        metadataLabelSizeGroup.AddWidget(metadataUniqueLabel);
+        metadataLabelSizeGroup.AddWidget(metadataSoftwareLabel);
+        metadataLabelSizeGroup.AddWidget(metadataArtistLabel);
+        metadataLabelSizeGroup.AddWidget(metadataCopyrightLabel);
 
         var settingsView = new CameraSettingsView(
             settingsRoot,
+            settingsCloseButton,
             settingsResolutionCombo,
             outputDirEntry,
             outputDirApplyButton,
@@ -99,17 +125,11 @@ public sealed class MainWindowBuilder
             infoVersionLabel,
             debugExitButton,
             metadataMakeEntry,
-            metadataMakeEffectiveLabel,
             metadataModelEntry,
-            metadataModelEffectiveLabel,
             metadataUniqueEntry,
-            metadataUniqueEffectiveLabel,
             metadataSoftwareEntry,
-            metadataSoftwareEffectiveLabel,
             metadataArtistEntry,
-            metadataArtistEffectiveLabel,
             metadataCopyrightEntry,
-            metadataCopyrightEffectiveLabel,
             metadataApplyButton);
 
         using var galleryBuilder = Builder.NewFromFile(ResolveLayoutPath(GalleryLayoutFileName));
@@ -162,7 +182,7 @@ public sealed class MainWindowBuilder
         ConfigureMetadataSettings(settingsView);
         ConfigureInfoPage(settingsView);
         ConfigureDebugSettings(settingsView, app);
-        ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, galleryView);
+        ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
 
         StyleInstaller.TryInstall();
 
@@ -173,12 +193,86 @@ public sealed class MainWindowBuilder
             window,
             picture,
             hud,
+            settingsButton,
+            galleryButton,
             photoView,
             stack,
             liveOverlay,
             settingsView,
             galleryView.Root,
             galleryView);
+    }
+
+    private void ApplyButtonIcons(Button settingsButton, Button galleryButton, Button captureButton)
+    {
+        SetButtonIcon(settingsButton, "settings-symbolic.svg");
+        SetButtonIcon(galleryButton, "gallery-symbolic.svg");
+        SetCaptureButtonIcon(captureButton, "capture-symbolic.svg");
+    }
+
+    private static void SetButtonIcon(Button button, string iconFile)
+    {
+        var path = ResolveIconPath(iconFile);
+        if (path is null)
+        {
+            return;
+        }
+
+        var picture = Picture.NewForFilename(path);
+        picture.CanShrink = true;
+        picture.WidthRequest = 32;
+        picture.HeightRequest = 32;
+        picture.AddCssClass("icon-image");
+        button.SetChild(picture);
+    }
+
+    private static void SetCaptureButtonIcon(Button button, string iconFile)
+    {
+        var path = ResolveIconPath(iconFile);
+        if (path is null)
+        {
+            return;
+        }
+
+        var picture = Picture.NewForFilename(path);
+        picture.CanShrink = true;
+        picture.WidthRequest = 20;
+        picture.HeightRequest = 20;
+        picture.AddCssClass("icon-image");
+
+        var label = Gtk.Label.New("CAPTURE");
+        label.AddCssClass("capture-label");
+
+        var box = Gtk.Box.New(Orientation.Horizontal, 6);
+        box.Append(picture);
+        box.Append(label);
+
+        button.SetChild(box);
+    }
+
+    private static string? ResolveIconPath(string fileName)
+    {
+        string? baseDir = AppContext.BaseDirectory;
+        if (!string.IsNullOrEmpty(baseDir))
+        {
+            string candidate = Path.Combine(baseDir, "Resources", "icons", "hicolor", "scalable", "actions", fileName);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        string fallback = Path.Combine(Environment.CurrentDirectory, "Resources", "icons", "hicolor", "scalable", "actions", fileName);
+        return File.Exists(fallback) ? fallback : null;
+    }
+
+    private static void InstallHeaderBar(Gtk.ApplicationWindow window)
+    {
+        var headerBar = Gtk.HeaderBar.New();
+        headerBar.ShowTitleButtons = true;
+        var titleLabel = Gtk.Label.New($"openDSLM v{AppVersion.Current} – Live Preview + RAW");
+        headerBar.SetTitleWidget(titleLabel);
+        window.SetTitlebar(headerBar);
     }
 
     private static T Require<T>(Builder builder, string id) where T : class
@@ -405,6 +499,7 @@ public sealed class MainWindowBuilder
         };
     }
 
+
     private void ConfigureMetadataSettings(CameraSettingsView settingsView)
     {
         if (settingsView.MetadataApplyButton is null)
@@ -470,12 +565,18 @@ public sealed class MainWindowBuilder
         Widget livePage,
         Widget settingsPage,
         Widget galleryPage,
+        Button settingsButton,
+        Button settingsCloseButton,
+        Button galleryButton,
         GalleryView galleryView)
     {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(livePage);
         ArgumentNullException.ThrowIfNull(settingsPage);
         ArgumentNullException.ThrowIfNull(galleryPage);
+        ArgumentNullException.ThrowIfNull(settingsButton);
+        ArgumentNullException.ThrowIfNull(settingsCloseButton);
+        ArgumentNullException.ThrowIfNull(galleryButton);
 
         livePage.SetName("live-view");
         settingsPage.SetName("settings-view");
@@ -498,33 +599,40 @@ public sealed class MainWindowBuilder
         void ShowLive()
         {
             stack.SetVisibleChild(livePage);
-            galleryView.EnsureGridVisible();
-        }
-
-        void EnterGallery()
-        {
-            _dispatcher.FireAndForget(AppActionId.SetGalleryPage, new SetGalleryPagePayload(0));
-            _dispatcher.FireAndForget(AppActionId.LoadGallery);
+            settingsButton.Sensitive = true;
+            galleryButton.Sensitive = true;
             galleryView.EnsureGridVisible();
         }
 
         ShowLive();
 
-        galleryView.BackRequested += (_, __) => ShowLive();
-
-        stack.OnNotify += (_, args) =>
+        settingsButton.OnClicked += (_, __) =>
         {
-            if (args.Pspec?.GetName() == "visible-child")
-            {
-                if (stack.VisibleChild == galleryPage)
-                {
-                    EnterGallery();
-                }
-                else if (stack.VisibleChild == livePage)
-                {
-                    galleryView.EnsureGridVisible();
-                }
-            }
+            if (!settingsButton.Sensitive) return;
+            stack.SetVisibleChild(settingsPage);
+            settingsButton.Sensitive = false;
+            galleryButton.Sensitive = true;
+        };
+
+        settingsCloseButton.OnClicked += (_, __) =>
+        {
+            ShowLive();
+        };
+
+        galleryButton.OnClicked += (_, __) =>
+        {
+            if (!galleryButton.Sensitive) return;
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPage, new SetGalleryPagePayload(0));
+            _dispatcher.FireAndForget(AppActionId.LoadGallery);
+            stack.SetVisibleChild(galleryPage);
+            galleryButton.Sensitive = false;
+            settingsButton.Sensitive = true;
+            galleryView.EnsureGridVisible();
+        };
+
+        galleryView.BackRequested += (_, __) =>
+        {
+            ShowLive();
         };
     }
 
