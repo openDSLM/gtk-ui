@@ -22,6 +22,7 @@ public sealed class MainWindowBuilder
     private bool _suppressIsoChange;
     private bool _suppressShutterChange;
     private bool _suppressResolutionChange;
+    private bool _suppressGalleryRowsChange;
     private const int MinGalleryRows = 2;
     private const int MaxGalleryRows = 6;
 
@@ -469,7 +470,7 @@ public sealed class MainWindowBuilder
         ArgumentNullException.ThrowIfNull(decreaseButton);
         ArgumentNullException.ThrowIfNull(increaseButton);
 
-        void UpdateRows(int rows)
+        void ApplyUiState(int rows)
         {
             rowsValueLabel.SetText(rows.ToString());
             decreaseButton.Sensitive = rows > MinGalleryRows;
@@ -477,25 +478,34 @@ public sealed class MainWindowBuilder
             applyRows?.Invoke(rows);
         }
 
-        UpdateRows(_state.GalleryPageSize);
+        ApplyUiState(_state.GalleryPageSize);
 
         decreaseButton.OnClicked += (_, __) =>
         {
+            if (_suppressGalleryRowsChange) return;
             int current = _state.GalleryPageSize;
-            if (current <= MinGalleryRows) return;
-            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(current - 1));
+            int next = current - 1;
+            if (next < MinGalleryRows) return;
+            _suppressGalleryRowsChange = true;
+            ApplyUiState(next);
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(next));
         };
 
         increaseButton.OnClicked += (_, __) =>
         {
+            if (_suppressGalleryRowsChange) return;
             int current = _state.GalleryPageSize;
-            if (current >= MaxGalleryRows) return;
-            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(current + 1));
+            int next = current + 1;
+            if (next > MaxGalleryRows) return;
+            _suppressGalleryRowsChange = true;
+            ApplyUiState(next);
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(next));
         };
 
         _state.GalleryPageSizeChanged += (_, rows) =>
         {
-            UpdateRows(rows);
+            ApplyUiState(rows);
+            _suppressGalleryRowsChange = false;
         };
     }
 
