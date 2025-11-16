@@ -253,11 +253,20 @@ public sealed class CameraController : IDisposable
         {
             _state.GalleryPageSize = payload.PageSize;
         });
+
+        _dispatcher.Register<UpdateMetadataPayload>(AppActionId.UpdateMetadataOverrides, async payload =>
+        {
+            await ApplyMetadataOverridesAsync(payload.Overrides).ConfigureAwait(false);
+        });
     }
 
     private async Task InitializeFromDaemonAsync()
     {
         await RefreshDaemonStatusAsync(forcePreviewRebuild: true).ConfigureAwait(false);
+        if (_state.Metadata == CameraMetadataSnapshot.Empty)
+        {
+            await RefreshMetadataAsync().ConfigureAwait(false);
+        }
         RebuildPreview();
         EnsureStatusPolling();
     }
@@ -372,6 +381,14 @@ public sealed class CameraController : IDisposable
             {
                 _lastSettings = status.Settings;
                 ApplySettingsToState(status.Settings);
+                if (status.Settings.Metadata == null)
+                {
+                    await RefreshMetadataAsync().ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                await RefreshMetadataAsync().ConfigureAwait(false);
             }
 
             if (!string.IsNullOrWhiteSpace(status.PreviewClientPipeline))
@@ -507,6 +524,27 @@ public sealed class CameraController : IDisposable
         }
     }
 
+    private async Task ApplyMetadataOverridesAsync(MetadataOverrides overrides)
+    {
+        if (overrides.IsEmpty)
+        {
+            return;
+        }
+
+        try
+        {
+            var metadata = await _daemonClient.UpdateMetadataAsync(overrides).ConfigureAwait(false);
+            if (metadata != null)
+            {
+                UpdateMetadataState(metadata);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to update metadata: {ex.Message}");
+        }
+    }
+
     private void EnsureStatusPolling()
     {
         if (_statusPollId != 0) return;
@@ -549,6 +587,19 @@ public sealed class CameraController : IDisposable
         });
     }
 
+    private async Task RefreshMetadataAsync()
+    {
+        try
+        {
+            var metadata = await _daemonClient.GetMetadataAsync().ConfigureAwait(false);
+            UpdateMetadataState(metadata);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to refresh metadata: {ex.Message}");
+        }
+    }
+
     private void ApplySettingsToState(DaemonSettings settings)
     {
         if (_state.AutoExposureEnabled != settings.AutoExposure)
@@ -579,6 +630,32 @@ public sealed class CameraController : IDisposable
         }
 
         _state.OutputDirectory = settings.OutputDir ?? string.Empty;
+        UpdateMetadataState(settings.Metadata);
+    }
+
+    private void UpdateMetadataState(DaemonMetadataEnvelope? metadata)
+    {
+        if (metadata == null)
+        {
+            return;
+        }
+
+        var snapshot = new CameraMetadataSnapshot(
+            metadata.Make,
+            metadata.Model,
+            metadata.UniqueModel,
+            metadata.Software,
+            metadata.Artist,
+            metadata.Copyright,
+            metadata.Effective?.Make ?? metadata.Make,
+            metadata.Effective?.Model ?? metadata.Model,
+            metadata.Effective?.UniqueModel ?? metadata.UniqueModel,
+            metadata.Effective?.Software ?? metadata.Software,
+            metadata.Effective?.Artist ?? metadata.Artist,
+            metadata.Effective?.Copyright ?? metadata.Copyright
+        );
+
+        _state.UpdateMetadata(snapshot);
     }
 
     private static int FindClosestIndex(int[] values, int target)

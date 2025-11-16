@@ -7,5 +7,18 @@ public sealed record CameraSettingsView(
     Entry OutputDirectoryEntry,
     Button OutputDirectoryApplyButton,
     CheckButton GalleryColorToggle,
-    SpinButton GalleryPageSizeSpin
+    SpinButton GalleryPageSizeSpin,
+    Entry MetadataMakeEntry,
+    Label MetadataMakeEffectiveLabel,
+    Entry MetadataModelEntry,
+    Label MetadataModelEffectiveLabel,
+    Entry MetadataUniqueEntry,
+    Label MetadataUniqueEffectiveLabel,
+    Entry MetadataSoftwareEntry,
+    Label MetadataSoftwareEffectiveLabel,
+    Entry MetadataArtistEntry,
+    Label MetadataArtistEffectiveLabel,
+    Entry MetadataCopyrightEntry,
+    Label MetadataCopyrightEffectiveLabel,
+    Button MetadataApplyButton
 );

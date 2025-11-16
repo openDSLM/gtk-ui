@@ -102,6 +102,50 @@ public sealed class UserPreferences
         }
     }
 
+    public string OutputDirectory
+    {
+        get => string.IsNullOrWhiteSpace(_model.OutputDirectory) ? "/ssd/RAW" : _model.OutputDirectory;
+        set
+        {
+            value ??= string.Empty;
+            if (string.Equals(_model.OutputDirectory, value, StringComparison.Ordinal))
+                return;
+            _model.OutputDirectory = value;
+            SavePreferences();
+        }
+    }
+
+    public MetadataOverrides MetadataOverrides
+    {
+        get => new(
+            _model.MetadataMake,
+            _model.MetadataModel,
+            _model.MetadataUniqueModel,
+            _model.MetadataSoftware,
+            _model.MetadataArtist,
+            _model.MetadataCopyright);
+        set
+        {
+            value ??= MetadataOverrides.Empty;
+            bool changed =
+                !string.Equals(_model.MetadataMake, value.Make, StringComparison.Ordinal) ||
+                !string.Equals(_model.MetadataModel, value.Model, StringComparison.Ordinal) ||
+                !string.Equals(_model.MetadataUniqueModel, value.UniqueModel, StringComparison.Ordinal) ||
+                !string.Equals(_model.MetadataSoftware, value.Software, StringComparison.Ordinal) ||
+                !string.Equals(_model.MetadataArtist, value.Artist, StringComparison.Ordinal) ||
+                !string.Equals(_model.MetadataCopyright, value.Copyright, StringComparison.Ordinal);
+            if (!changed)
+                return;
+            _model.MetadataMake = value.Make;
+            _model.MetadataModel = value.Model;
+            _model.MetadataUniqueModel = value.UniqueModel;
+            _model.MetadataSoftware = value.Software;
+            _model.MetadataArtist = value.Artist;
+            _model.MetadataCopyright = value.Copyright;
+            SavePreferences();
+        }
+    }
+
     private PreferencesModel LoadPreferences()
     {
         try
@@ -180,6 +224,7 @@ public sealed class UserPreferences
         {
             model.TimelapseFrameCount = 120;
         }
+        model.OutputDirectory ??= "/ssd/RAW";
         return model;
     }
 
@@ -192,5 +237,12 @@ public sealed class UserPreferences
         public double VideoShutterAngle { get; set; } = 180.0;
         public double TimelapseIntervalSeconds { get; set; } = 5.0;
         public int TimelapseFrameCount { get; set; } = 120;
+        public string OutputDirectory { get; set; } = "/ssd/RAW";
+        public string? MetadataMake { get; set; }
+        public string? MetadataModel { get; set; }
+        public string? MetadataUniqueModel { get; set; }
+        public string? MetadataSoftware { get; set; }
+        public string? MetadataArtist { get; set; }
+        public string? MetadataCopyright { get; set; }
     }
 }

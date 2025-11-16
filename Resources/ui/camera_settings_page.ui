@@ -184,6 +184,196 @@
                 </property>
               </object>
             </child>
+            <child>
+              <object class="GtkStackPage" id="settings_metadata_page">
+                <property name="name">metadata</property>
+                <property name="title">Metadata</property>
+                <property name="child">
+                  <object class="GtkBox" id="metadata_settings_box">
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">12</property>
+                    <property name="margin-top">12</property>
+                    <property name="margin-bottom">12</property>
+                    <property name="margin-start">12</property>
+                    <property name="margin-end">12</property>
+                    <child>
+                      <object class="GtkLabel" id="metadata_intro_label">
+                        <property name="wrap">true</property>
+                        <property name="label">Leave a field blank to use the default reported by the camera.</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkFrame" id="metadata_overrides_frame">
+                        <property name="hexpand">true</property>
+                        <property name="label">Overrides</property>
+                        <property name="label-xalign">0.0</property>
+                        <child>
+                          <object class="GtkBox" id="metadata_overrides_box">
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">10</property>
+                            <property name="margin-start">12</property>
+                            <property name="margin-end">12</property>
+                            <property name="margin-top">12</property>
+                            <property name="margin-bottom">12</property>
+                            <child>
+                              <object class="GtkBox" id="metadata_make_row">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">4</property>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_make_label">
+                                    <property name="label">Make</property>
+                                    <property name="halign">start</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkEntry" id="metadata_make_entry">
+                                    <property name="hexpand">true</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_make_effective_label">
+                                    <property name="wrap">true</property>
+                                    <property name="css-classes">metadata-effective-label</property>
+                                    <property name="label">Effective: -</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="metadata_model_row">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">4</property>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_model_label">
+                                    <property name="label">Model</property>
+                                    <property name="halign">start</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkEntry" id="metadata_model_entry">
+                                    <property name="hexpand">true</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_model_effective_label">
+                                    <property name="wrap">true</property>
+                                    <property name="css-classes">metadata-effective-label</property>
+                                    <property name="label">Effective: -</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="metadata_unique_row">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">4</property>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_unique_label">
+                                    <property name="label">Unique Model</property>
+                                    <property name="halign">start</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkEntry" id="metadata_unique_entry">
+                                    <property name="hexpand">true</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_unique_effective_label">
+                                    <property name="wrap">true</property>
+                                    <property name="css-classes">metadata-effective-label</property>
+                                    <property name="label">Effective: -</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="metadata_software_row">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">4</property>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_software_label">
+                                    <property name="label">Software</property>
+                                    <property name="halign">start</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkEntry" id="metadata_software_entry">
+                                    <property name="hexpand">true</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_software_effective_label">
+                                    <property name="wrap">true</property>
+                                    <property name="css-classes">metadata-effective-label</property>
+                                    <property name="label">Effective: -</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="metadata_artist_row">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">4</property>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_artist_label">
+                                    <property name="label">Author / Artist</property>
+                                    <property name="halign">start</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkEntry" id="metadata_artist_entry">
+                                    <property name="hexpand">true</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_artist_effective_label">
+                                    <property name="wrap">true</property>
+                                    <property name="css-classes">metadata-effective-label</property>
+                                    <property name="label">Effective: -</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="metadata_copyright_row">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">4</property>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_copyright_label">
+                                    <property name="label">Copyright / Credits</property>
+                                    <property name="halign">start</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkEntry" id="metadata_copyright_entry">
+                                    <property name="hexpand">true</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="metadata_copyright_effective_label">
+                                    <property name="wrap">true</property>
+                                    <property name="css-classes">metadata-effective-label</property>
+                                    <property name="label">Effective: -</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkButton" id="metadata_apply_button">
+                        <property name="label">Apply Metadata Overrides</property>
+                        <property name="css-classes">control-button</property>
+                        <property name="halign">start</property>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+              </object>
+            </child>
           </object>
         </child>
       </object>

@@ -21,5 +21,6 @@ public enum AppActionId
     StopVideoRecording,
     UpdateTimelapseSettings,
     StartTimelapse,
-    StopTimelapse
+    StopTimelapse,
+    UpdateMetadataOverrides
 }

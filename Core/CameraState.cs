@@ -33,6 +33,7 @@ public sealed class CameraState
     private bool _timelapseActive;
     private string? _activeTimelapsePath;
     private readonly UserPreferences _preferences;
+    private CameraMetadataSnapshot _metadataSnapshot = CameraMetadataSnapshot.Empty;
 
     public CameraState()
     {
@@ -45,6 +46,21 @@ public sealed class CameraState
         _videoShutterAngle = _preferences.VideoShutterAngle;
         _timelapseIntervalSeconds = _preferences.TimelapseIntervalSeconds;
         _timelapseFrameCount = _preferences.TimelapseFrameCount;
+        _outputDirectory = _preferences.OutputDirectory;
+        var storedOverrides = _preferences.MetadataOverrides;
+        _metadataSnapshot = new CameraMetadataSnapshot(
+            storedOverrides.Make,
+            storedOverrides.Model,
+            storedOverrides.UniqueModel,
+            storedOverrides.Software,
+            storedOverrides.Artist,
+            storedOverrides.Copyright,
+            storedOverrides.Make,
+            storedOverrides.Model,
+            storedOverrides.UniqueModel,
+            storedOverrides.Software,
+            storedOverrides.Artist,
+            storedOverrides.Copyright);
         EnsureGalleryPageBounds();
     }
 
@@ -67,11 +83,13 @@ public sealed class CameraState
     public event EventHandler<VideoRecordingMetrics>? VideoRecordingMetricsChanged;
     public event EventHandler? TimelapseSettingsChanged;
     public event EventHandler<bool>? TimelapseActiveChanged;
+    public event EventHandler? MetadataChanged;
 
     public long? LastExposureMicroseconds { get; private set; }
     public int? LastIso { get; private set; }
     public double? LastAnalogueGain { get; private set; }
     public readonly record struct VideoRecordingMetrics(double TargetFps, double ActualFps, int CapturedFrames, int DroppedFrames);
+    public CameraMetadataSnapshot Metadata => _metadataSnapshot;
     public string OutputDirectory
     {
         get => _outputDirectory;
@@ -80,6 +98,7 @@ public sealed class CameraState
             value ??= string.Empty;
             if (_outputDirectory == value) return;
             _outputDirectory = value;
+            _preferences.OutputDirectory = value;
             OutputDirectoryChanged?.Invoke(this, value);
         }
     }
@@ -172,6 +191,26 @@ public sealed class CameraState
         _recentCaptures.Clear();
         EnsureGalleryPageBounds();
         RecentCapturesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void UpdateMetadata(CameraMetadataSnapshot snapshot)
+    {
+        snapshot ??= CameraMetadataSnapshot.Empty;
+        if (_metadataSnapshot == snapshot)
+        {
+            return;
+        }
+
+        _metadataSnapshot = snapshot;
+        var overrides = new MetadataOverrides(
+            snapshot.MakeOverride,
+            snapshot.ModelOverride,
+            snapshot.UniqueModelOverride,
+            snapshot.SoftwareOverride,
+            snapshot.ArtistOverride,
+            snapshot.CopyrightOverride);
+        _preferences.MetadataOverrides = overrides;
+        MetadataChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public bool AutoExposureEnabled

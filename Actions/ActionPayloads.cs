@@ -9,3 +9,4 @@ public readonly record struct SetGalleryPageSizePayload(int PageSize);
 public readonly record struct SetCaptureModePayload(CaptureMode Mode);
 public readonly record struct UpdateVideoSettingsPayload(double Fps, double ShutterAngleDegrees);
 public readonly record struct UpdateTimelapseSettingsPayload(double IntervalSeconds, int FrameCount);
+public readonly record struct UpdateMetadataPayload(MetadataOverrides Overrides);

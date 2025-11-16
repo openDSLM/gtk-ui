@@ -64,6 +64,19 @@ public sealed class MainWindowBuilder
         var outputDirApplyButton = Require<Button>(settingsBuilder, "output_dir_apply_button");
         var galleryColorToggle = Require<CheckButton>(settingsBuilder, "gallery_color_toggle");
         var galleryPageSizeSpin = Require<SpinButton>(settingsBuilder, "gallery_page_size_spin");
+        var metadataMakeEntry = Require<Entry>(settingsBuilder, "metadata_make_entry");
+        var metadataMakeEffectiveLabel = Require<Label>(settingsBuilder, "metadata_make_effective_label");
+        var metadataModelEntry = Require<Entry>(settingsBuilder, "metadata_model_entry");
+        var metadataModelEffectiveLabel = Require<Label>(settingsBuilder, "metadata_model_effective_label");
+        var metadataUniqueEntry = Require<Entry>(settingsBuilder, "metadata_unique_entry");
+        var metadataUniqueEffectiveLabel = Require<Label>(settingsBuilder, "metadata_unique_effective_label");
+        var metadataSoftwareEntry = Require<Entry>(settingsBuilder, "metadata_software_entry");
+        var metadataSoftwareEffectiveLabel = Require<Label>(settingsBuilder, "metadata_software_effective_label");
+        var metadataArtistEntry = Require<Entry>(settingsBuilder, "metadata_artist_entry");
+        var metadataArtistEffectiveLabel = Require<Label>(settingsBuilder, "metadata_artist_effective_label");
+        var metadataCopyrightEntry = Require<Entry>(settingsBuilder, "metadata_copyright_entry");
+        var metadataCopyrightEffectiveLabel = Require<Label>(settingsBuilder, "metadata_copyright_effective_label");
+        var metadataApplyButton = Require<Button>(settingsBuilder, "metadata_apply_button");
 
         var settingsView = new CameraSettingsView(
             settingsRoot,
@@ -72,7 +85,20 @@ public sealed class MainWindowBuilder
             outputDirEntry,
             outputDirApplyButton,
             galleryColorToggle,
-            galleryPageSizeSpin);
+            galleryPageSizeSpin,
+            metadataMakeEntry,
+            metadataMakeEffectiveLabel,
+            metadataModelEntry,
+            metadataModelEffectiveLabel,
+            metadataUniqueEntry,
+            metadataUniqueEffectiveLabel,
+            metadataSoftwareEntry,
+            metadataSoftwareEffectiveLabel,
+            metadataArtistEntry,
+            metadataArtistEffectiveLabel,
+            metadataCopyrightEntry,
+            metadataCopyrightEffectiveLabel,
+            metadataApplyButton);
 
         using var galleryBuilder = Builder.NewFromFile(ResolveLayoutPath(GalleryLayoutFileName));
         var galleryRoot = Require<Box>(galleryBuilder, "gallery_root");
@@ -111,6 +137,7 @@ public sealed class MainWindowBuilder
         ConfigureResolutionCombo(settingsView.ResolutionCombo);
         ConfigureSettingsPanel(settingsView);
         ConfigureGallerySettings(settingsView);
+        ConfigureMetadataSettings(settingsView);
         ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
 
         StyleInstaller.TryInstall();
@@ -293,40 +320,83 @@ public sealed class MainWindowBuilder
 
     private void ConfigureGallerySettings(CameraSettingsView settingsView)
     {
+        var colorToggle = settingsView.GalleryColorToggle;
+        var pageSizeSpin = settingsView.GalleryPageSizeSpin;
+        ArgumentNullException.ThrowIfNull(colorToggle);
+        ArgumentNullException.ThrowIfNull(pageSizeSpin);
+
         bool suppressToggle = false;
         bool suppressPageSize = false;
 
-        settingsView.GalleryColorToggle.Active = _state.GalleryColorEnabled;
-        settingsView.GalleryPageSizeSpin.Adjustment.Lower = 1;
-        settingsView.GalleryPageSizeSpin.Adjustment.Upper = 48;
-        settingsView.GalleryPageSizeSpin.Value = _state.GalleryPageSize;
+        colorToggle.Active = _state.GalleryColorEnabled;
+        var pageSizeAdjustment = pageSizeSpin.Adjustment;
+        ArgumentNullException.ThrowIfNull(pageSizeAdjustment);
+        pageSizeAdjustment.Lower = 1;
+        pageSizeAdjustment.Upper = 48;
+        pageSizeSpin.Value = _state.GalleryPageSize;
 
-        settingsView.GalleryColorToggle.OnToggled += (_, __) =>
+        colorToggle.OnToggled += (_, __) =>
         {
             if (suppressToggle) return;
-            bool enabled = settingsView.GalleryColorToggle.Active;
+            bool enabled = colorToggle.Active;
             _dispatcher.FireAndForget(AppActionId.SetGalleryColorEnabled, new SetGalleryColorEnabledPayload(enabled));
         };
 
-        settingsView.GalleryPageSizeSpin.OnValueChanged += (_, __) =>
+        pageSizeSpin.OnValueChanged += (_, __) =>
         {
             if (suppressPageSize) return;
-            int requested = (int)Math.Max(1, Math.Round(settingsView.GalleryPageSizeSpin.Value));
+            int requested = (int)Math.Max(1, Math.Round(pageSizeSpin.Value));
             _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(requested));
         };
 
         _state.GalleryColorEnabledChanged += (_, enabled) =>
         {
             suppressToggle = true;
-            settingsView.GalleryColorToggle.Active = enabled;
+            colorToggle.Active = enabled;
             suppressToggle = false;
         };
 
         _state.GalleryPageSizeChanged += (_, size) =>
         {
             suppressPageSize = true;
-            settingsView.GalleryPageSizeSpin.Value = size;
+            pageSizeSpin.Value = size;
             suppressPageSize = false;
+        };
+    }
+
+    private void ConfigureMetadataSettings(CameraSettingsView settingsView)
+    {
+        if (settingsView.MetadataApplyButton is null)
+        {
+            return;
+        }
+
+        void Refresh()
+        {
+            UpdateMetadataControls(settingsView, _state.Metadata);
+        }
+
+        Refresh();
+        _state.MetadataChanged += (_, __) => Refresh();
+
+        settingsView.MetadataApplyButton.OnClicked += async (_, __) =>
+        {
+            var overrides = BuildMetadataOverrides(settingsView);
+            if (overrides.IsEmpty)
+            {
+                return;
+            }
+
+            settingsView.MetadataApplyButton.Sensitive = false;
+            try
+            {
+                await _dispatcher.DispatchAsync(AppActionId.UpdateMetadataOverrides,
+                    new UpdateMetadataPayload(overrides));
+            }
+            finally
+            {
+                settingsView.MetadataApplyButton.Sensitive = true;
+            }
         };
     }
 
@@ -520,6 +590,60 @@ public sealed class MainWindowBuilder
         };
 
         _dispatcher.FireAndForget(AppActionId.LoadGallery);
+    }
+
+    private void UpdateMetadataControls(CameraSettingsView view, CameraMetadataSnapshot snapshot)
+    {
+        if (view.MetadataMakeEntry is not null)
+            SetEntryText(view.MetadataMakeEntry, snapshot.MakeOverride ?? string.Empty);
+        if (view.MetadataModelEntry is not null)
+            SetEntryText(view.MetadataModelEntry, snapshot.ModelOverride ?? string.Empty);
+        if (view.MetadataUniqueEntry is not null)
+            SetEntryText(view.MetadataUniqueEntry, snapshot.UniqueModelOverride ?? string.Empty);
+        if (view.MetadataSoftwareEntry is not null)
+            SetEntryText(view.MetadataSoftwareEntry, snapshot.SoftwareOverride ?? string.Empty);
+        if (view.MetadataArtistEntry is not null)
+            SetEntryText(view.MetadataArtistEntry, snapshot.ArtistOverride ?? string.Empty);
+        if (view.MetadataCopyrightEntry is not null)
+            SetEntryText(view.MetadataCopyrightEntry, snapshot.CopyrightOverride ?? string.Empty);
+
+        if (view.MetadataMakeEffectiveLabel is not null)
+            SetEffectiveLabel(view.MetadataMakeEffectiveLabel, snapshot.EffectiveMake);
+        if (view.MetadataModelEffectiveLabel is not null)
+            SetEffectiveLabel(view.MetadataModelEffectiveLabel, snapshot.EffectiveModel);
+        if (view.MetadataUniqueEffectiveLabel is not null)
+            SetEffectiveLabel(view.MetadataUniqueEffectiveLabel, snapshot.EffectiveUniqueModel);
+        if (view.MetadataSoftwareEffectiveLabel is not null)
+            SetEffectiveLabel(view.MetadataSoftwareEffectiveLabel, snapshot.EffectiveSoftware);
+        if (view.MetadataArtistEffectiveLabel is not null)
+            SetEffectiveLabel(view.MetadataArtistEffectiveLabel, snapshot.EffectiveArtist);
+        if (view.MetadataCopyrightEffectiveLabel is not null)
+            SetEffectiveLabel(view.MetadataCopyrightEffectiveLabel, snapshot.EffectiveCopyright);
+    }
+
+    private MetadataOverrides BuildMetadataOverrides(CameraSettingsView view)
+    {
+        return new MetadataOverrides(
+            GetMetadataEntryValue(view.MetadataMakeEntry),
+            GetMetadataEntryValue(view.MetadataModelEntry),
+            GetMetadataEntryValue(view.MetadataUniqueEntry),
+            GetMetadataEntryValue(view.MetadataSoftwareEntry),
+            GetMetadataEntryValue(view.MetadataArtistEntry),
+            GetMetadataEntryValue(view.MetadataCopyrightEntry));
+    }
+
+    private static string? GetMetadataEntryValue(Entry entry)
+    {
+        if (entry is null) return null;
+        string text = GetEntryText(entry).Trim();
+        return string.IsNullOrEmpty(text) ? null : text;
+    }
+
+    private static void SetEffectiveLabel(Label label, string? value)
+    {
+        if (label is null) return;
+        string text = string.IsNullOrWhiteSpace(value) ? "Effective: (default)" : $"Effective: {value}";
+        label.SetText(text);
     }
 
 
