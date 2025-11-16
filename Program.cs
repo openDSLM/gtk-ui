@@ -1,4 +1,5 @@
 using System;
+using Adw;
 using Gtk;
 using Gst;
 
@@ -15,6 +16,8 @@ public static class Program
             typeof(GstVideo.VideoInfo).Assembly
         );
         Gst.Application.Init();
+        AdwNativeHelper.EnsureLibAdwAlias();
+        Adw.Functions.Init();
 
         using var app = new CameraApp();
         return app.Run(args);

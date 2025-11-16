@@ -1,9 +1,10 @@
 using System;
+using Adw;
 using Gtk;
 
 public sealed class CameraApp : IDisposable
 {
-    private readonly Gtk.Application _application;
+    private readonly Adw.Application _application;
     private readonly CameraState _state;
     private readonly ActionDispatcher _dispatcher;
     private readonly CameraController _controller;
@@ -11,7 +12,7 @@ public sealed class CameraApp : IDisposable
 
     public CameraApp()
     {
-        _application = Gtk.Application.New("ui.opendslm.main", Gio.ApplicationFlags.FlagsNone);
+        _application = Adw.Application.New("ui.opendslm.main", Gio.ApplicationFlags.FlagsNone);
         _state = new CameraState();
         _dispatcher = new ActionDispatcher();
         _controller = new CameraController(_state, _dispatcher);
