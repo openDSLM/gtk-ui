@@ -20,6 +20,8 @@ public sealed class MainWindowBuilder
     private bool _suppressResolutionChange;
     private bool _suppressZoomChange;
     private bool _suppressPanChange;
+    private const int MinGalleryRows = 2;
+    private const int MaxGalleryRows = 6;
 
     public MainWindowBuilder(CameraState state, ActionDispatcher dispatcher, CameraController controller)
     {
@@ -105,13 +107,19 @@ public sealed class MainWindowBuilder
 
         using var galleryBuilder = Builder.NewFromFile(ResolveLayoutPath(GalleryLayoutFileName));
         var galleryRoot = Require<Box>(galleryBuilder, "gallery_root");
+        var galleryHeader = Require<Box>(galleryBuilder, "gallery_header");
+        var galleryRowsControl = Require<Box>(galleryBuilder, "gallery_rows_control");
+        var galleryRowsValueLabel = Require<Label>(galleryBuilder, "gallery_rows_value");
+        var galleryRowsDecreaseButton = Require<Button>(galleryBuilder, "gallery_rows_decrease_button");
+        var galleryRowsIncreaseButton = Require<Button>(galleryBuilder, "gallery_rows_increase_button");
         var galleryBackButton = Require<Button>(galleryBuilder, "gallery_back_button");
         var galleryStack = Require<Stack>(galleryBuilder, "gallery_stack");
         var galleryEmptyBox = Require<Box>(galleryBuilder, "gallery_empty_box");
         var galleryScroller = Require<ScrolledWindow>(galleryBuilder, "gallery_scroller");
         var galleryFlow = Require<FlowBox>(galleryBuilder, "gallery_flow");
-        var galleryViewerBox = Require<Box>(galleryBuilder, "gallery_viewer_box");
+        var galleryViewerOverlay = Require<Overlay>(galleryBuilder, "gallery_viewer_overlay");
         var galleryViewerBackButton = Require<Button>(galleryBuilder, "gallery_viewer_back_button");
+        var galleryViewerLiveButton = Require<Button>(galleryBuilder, "gallery_viewer_live_button");
         var galleryPrevButton = Require<Button>(galleryBuilder, "gallery_prev_button");
         var galleryNextButton = Require<Button>(galleryBuilder, "gallery_next_button");
         var galleryPageLabel = Require<Label>(galleryBuilder, "gallery_page_label");
@@ -120,13 +128,16 @@ public sealed class MainWindowBuilder
 
         var galleryView = new GalleryView(
             galleryRoot,
+            galleryHeader,
+            galleryRowsControl,
             galleryBackButton,
             galleryStack,
             galleryEmptyBox,
             galleryScroller,
             galleryFlow,
-            galleryViewerBox,
+            galleryViewerOverlay,
             galleryViewerBackButton,
+            galleryViewerLiveButton,
             galleryPrevButton,
             galleryNextButton,
             galleryPageLabel,
@@ -140,6 +151,7 @@ public sealed class MainWindowBuilder
         ConfigureResolutionCombo(settingsView.ResolutionCombo);
         ConfigureSettingsPanel(settingsView);
         ConfigureGallerySettings(settingsView);
+        ConfigureGalleryRowsControl(galleryRowsValueLabel, galleryRowsDecreaseButton, galleryRowsIncreaseButton, galleryView);
         ConfigureMetadataSettings(settingsView);
         ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
 
@@ -407,8 +419,8 @@ public sealed class MainWindowBuilder
         colorToggle.Active = _state.GalleryColorEnabled;
         var pageSizeAdjustment = pageSizeSpin.Adjustment;
         ArgumentNullException.ThrowIfNull(pageSizeAdjustment);
-        pageSizeAdjustment.Lower = 1;
-        pageSizeAdjustment.Upper = 48;
+        pageSizeAdjustment.Lower = MinGalleryRows;
+        pageSizeAdjustment.Upper = MaxGalleryRows;
         pageSizeSpin.Value = _state.GalleryPageSize;
 
         colorToggle.OnToggled += (_, __) =>
@@ -421,7 +433,8 @@ public sealed class MainWindowBuilder
         pageSizeSpin.OnValueChanged += (_, __) =>
         {
             if (suppressPageSize) return;
-            int requested = (int)Math.Max(1, Math.Round(pageSizeSpin.Value));
+            int requested = (int)Math.Round(pageSizeSpin.Value);
+            requested = Math.Clamp(requested, MinGalleryRows, MaxGalleryRows);
             _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(requested));
         };
 
@@ -437,6 +450,43 @@ public sealed class MainWindowBuilder
             suppressPageSize = true;
             pageSizeSpin.Value = size;
             suppressPageSize = false;
+        };
+    }
+
+    private void ConfigureGalleryRowsControl(Label rowsValueLabel, Button decreaseButton, Button increaseButton, GalleryView galleryView)
+    {
+        ArgumentNullException.ThrowIfNull(rowsValueLabel);
+        ArgumentNullException.ThrowIfNull(decreaseButton);
+        ArgumentNullException.ThrowIfNull(increaseButton);
+        ArgumentNullException.ThrowIfNull(galleryView);
+
+        void UpdateRows(int rows)
+        {
+            rowsValueLabel.SetText(rows.ToString());
+            decreaseButton.Sensitive = rows > MinGalleryRows;
+            increaseButton.Sensitive = rows < MaxGalleryRows;
+            galleryView.SetGridRows(rows);
+        }
+
+        UpdateRows(_state.GalleryPageSize);
+
+        decreaseButton.OnClicked += (_, __) =>
+        {
+            int current = _state.GalleryPageSize;
+            if (current <= MinGalleryRows) return;
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(current - 1));
+        };
+
+        increaseButton.OnClicked += (_, __) =>
+        {
+            int current = _state.GalleryPageSize;
+            if (current >= MaxGalleryRows) return;
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(current + 1));
+        };
+
+        _state.GalleryPageSizeChanged += (_, rows) =>
+        {
+            UpdateRows(rows);
         };
     }
 

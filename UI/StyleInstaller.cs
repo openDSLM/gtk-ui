@@ -127,15 +127,16 @@ overlay label.hud-readout {
 }
 
 .back-button {
-  background-color: rgba(255,255,255,0.08);
+  background-color: rgba(10, 10, 10, 0.85);
   color: #fefefe;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.25);
-  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.4);
+  padding: 6px 14px;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.4);
 }
 
 .back-button:hover {
-  background-color: rgba(255,255,255,0.18);
+  background-color: rgba(30,30,30,0.9);
 }
 
 .icon-image {
@@ -243,14 +244,45 @@ box.settings-page entry.settings-input {
 }
 
 .gallery-page {
-  background-color: shade(@window_bg_color, 1.04);
-  padding: 24px 48px 32px 48px;
-  row-gap: 18px;
+  background-color: shade(@window_bg_color, 1.02);
+  padding: 0;
+  row-gap: 12px;
 }
 
 .gallery-header {
-  padding-bottom: 8px;
+  padding: 20px 32px 10px 32px;
   border-bottom: 1px solid @panel_border;
+  column-gap: 12px;
+  align-items: center;
+}
+
+.gallery-rows-control {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid @panel_border;
+  background-color: shade(@window_bg_color, 1.06);
+  color: @window_fg_color;
+  column-gap: 12px;
+  align-items: center;
+}
+
+.gallery-rows-control button {
+  min-width: 32px;
+}
+
+.gallery-rows-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 11px;
+}
+
+.gallery-rows-value {
+  font-weight: 700;
+  min-width: 32px;
+  text-align: center;
+  color: @window_fg_color;
 }
 
 .gallery-content-panel {
@@ -258,16 +290,60 @@ box.settings-page entry.settings-input {
   border-radius: 8px;
   border: 1px solid @panel_border;
   padding: 16px;
+  margin: 0 32px;
 }
 
 .gallery-footer {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 0;
+  padding: 16px 32px 24px 32px;
   border-top: 1px solid @panel_border;
+  column-gap: 18px;
+  align-items: center;
 }
 
-.gallery-viewer-header {
-  padding-bottom: 4px;
+.gallery-footer button {
+  background-color: rgba(10,10,10,0.8);
+  color: #fefefe;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 6px 16px;
+  font-weight: 600;
+}
+
+.gallery-viewer-overlay {
+  background-color: #000;
+}
+
+.gallery-viewer-top-bar {
+  background-color: rgba(10,10,10,0.65);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.gallery-full-picture {
+  min-width: 0;
+  min-height: 0;
+}
+
+.gallery-viewer-back-button {
+  background-color: rgba(12,12,12,0.75);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  color: #fff;
+  padding: 6px 12px;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.45);
+}
+
+.gallery-full-info {
+  background-color: rgba(10,10,10,0.65);
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: #fff;
+}
+
+.gallery-full-label {
+  color: inherit;
+  font-weight: 600;
 }
 
 label.gallery-title {
@@ -290,19 +366,28 @@ flowboxchild.gallery-thumb {
 box.gallery-thumb-body {
   padding: 0;
   margin: 0;
+  min-width: 0;
 }
 
 flowboxchild.gallery-thumb picture.gallery-thumb-picture {
-  background-color: rgba(0, 0, 0, 0.65);
-  border-radius: 4px;
+  background-color: transparent;
+  border-radius: 0;
   min-width: 0;
   min-height: 0;
-  border: 2px solid rgba(255,255,255,0.08);
+  border: none;
 }
 
 flowboxchild.gallery-thumb picture.gallery-thumb-picture-missing {
   background-color: rgba(64, 64, 64, 0.6);
-  border: 2px solid rgba(255,255,255,0.1);
+  border: none;
+}
+
+.gallery-page-label {
+  color: @window_fg_color;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  min-width: 120px;
+  text-align: center;
 }
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);

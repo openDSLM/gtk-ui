@@ -15,12 +15,15 @@ public sealed class GalleryView
     private const int ThumbnailHeight = 160;
     private const int FullMaxDimension = 4096;
 
+    private readonly Widget _header;
+    private readonly Widget _rowsControl;
     private readonly Stack _stack;
     private readonly Widget _emptyPage;
     private readonly Widget _gridPage;
     private readonly Widget _viewerPage;
     private readonly FlowBox _flowBox;
     private readonly Button _viewerBackButton;
+    private readonly Button _viewerLiveButton;
     private readonly Button _prevButton;
     private readonly Button _nextButton;
     private readonly Label _pageLabel;
@@ -50,20 +53,25 @@ public sealed class GalleryView
 
     public GalleryView(
         Widget root,
+        Widget header,
+        Widget rowsControl,
         Button backButton,
         Stack stack,
         Widget emptyPage,
         Widget gridPage,
-    FlowBox flowBox,
-    Widget viewerPage,
-    Button viewerBackButton,
-    Button prevButton,
-    Button nextButton,
-    Label pageLabel,
-    Picture fullPicture,
-    Label fullLabel)
+        FlowBox flowBox,
+        Widget viewerPage,
+        Button viewerBackButton,
+        Button viewerLiveButton,
+        Button prevButton,
+        Button nextButton,
+        Label pageLabel,
+        Picture fullPicture,
+        Label fullLabel)
     {
         Root = root ?? throw new ArgumentNullException(nameof(root));
+        _header = header ?? throw new ArgumentNullException(nameof(header));
+        _rowsControl = rowsControl ?? throw new ArgumentNullException(nameof(rowsControl));
         BackButton = backButton ?? throw new ArgumentNullException(nameof(backButton));
         _stack = stack ?? throw new ArgumentNullException(nameof(stack));
         _emptyPage = emptyPage ?? throw new ArgumentNullException(nameof(emptyPage));
@@ -71,6 +79,7 @@ public sealed class GalleryView
         _flowBox = flowBox ?? throw new ArgumentNullException(nameof(flowBox));
         _viewerPage = viewerPage ?? throw new ArgumentNullException(nameof(viewerPage));
         _viewerBackButton = viewerBackButton ?? throw new ArgumentNullException(nameof(viewerBackButton));
+        _viewerLiveButton = viewerLiveButton ?? throw new ArgumentNullException(nameof(viewerLiveButton));
         _prevButton = prevButton ?? throw new ArgumentNullException(nameof(prevButton));
         _nextButton = nextButton ?? throw new ArgumentNullException(nameof(nextButton));
         _pageLabel = pageLabel ?? throw new ArgumentNullException(nameof(pageLabel));
@@ -86,11 +95,18 @@ public sealed class GalleryView
         };
 
         _viewerBackButton.OnClicked += (_, __) => ShowGrid();
+        _viewerLiveButton.OnClicked += (_, __) =>
+        {
+            EnsureGridVisible();
+            BackRequested?.Invoke(this, EventArgs.Empty);
+        };
         _prevButton.OnClicked += (_, __) => PageRequested?.Invoke(this, -1);
         _nextButton.OnClicked += (_, __) => PageRequested?.Invoke(this, +1);
         _prevButton.Sensitive = false;
         _nextButton.Sensitive = false;
         _pageLabel.SetText("No photos");
+        SetChromeVisible(true);
+        SetGridRows(2);
     }
 
     public Widget Root { get; }
@@ -166,6 +182,7 @@ public sealed class GalleryView
 
     private void ShowViewer(string path)
     {
+        SetChromeVisible(false);
         var texture = TryLoadTexture(path, out var errorMessage, true, FullMaxDimension, FullMaxDimension);
         if (texture != null)
         {
@@ -187,6 +204,7 @@ public sealed class GalleryView
 
     private void ShowGrid()
     {
+        SetChromeVisible(true);
         if (_thumbnails.Count == 0)
         {
             ShowEmpty();
@@ -199,8 +217,29 @@ public sealed class GalleryView
 
     private void ShowEmpty()
     {
+        SetChromeVisible(true);
         SetFullTexture(null);
         _stack.SetVisibleChild(_emptyPage);
+    }
+
+    private void SetChromeVisible(bool visible)
+    {
+        if (_header is not null)
+        {
+            _header.Visible = visible;
+        }
+        if (_rowsControl is not null)
+        {
+            _rowsControl.Visible = visible;
+        }
+    }
+
+    public void SetGridRows(int rows)
+    {
+        rows = Math.Clamp(rows, 2, 6);
+        uint perLine = (uint)rows;
+        _flowBox.MinChildrenPerLine = perLine;
+        _flowBox.MaxChildrenPerLine = perLine;
     }
 
     private void ClearThumbnails()
@@ -222,20 +261,32 @@ public sealed class GalleryView
 
         var child = FlowBoxChild.New();
         child.AddCssClass("gallery-thumb");
-        child.SetSizeRequest(ThumbnailWidth + 4, ThumbnailHeight + 4);
+        child.Hexpand = true;
+        child.Vexpand = true;
+        child.Halign = Align.Fill;
+        child.Valign = Align.Fill;
+        child.SetSizeRequest(-1, -1);
 
         var container = Box.New(Orientation.Vertical, 0);
-        container.WidthRequest = ThumbnailWidth;
-        container.SetSizeRequest(ThumbnailWidth, ThumbnailHeight);
+        container.Hexpand = true;
+        container.Vexpand = true;
+        container.Halign = Align.Fill;
+        container.Valign = Align.Fill;
+        container.SetSizeRequest(-1, -1);
         container.AddCssClass("gallery-thumb-body");
 
         var picture = new Picture
         {
             WidthRequest = ThumbnailWidth,
             HeightRequest = ThumbnailHeight,
-            ContentFit = ContentFit.ScaleDown
+            ContentFit = ContentFit.Cover
         };
-        picture.SetSizeRequest(ThumbnailWidth, ThumbnailHeight);
+        picture.SetSizeRequest(-1, -1);
+        picture.Halign = Align.Fill;
+        picture.Valign = Align.Fill;
+        picture.CanShrink = true;
+        picture.Vexpand = true;
+        picture.Hexpand = true;
         picture.AddCssClass("gallery-thumb-picture");
 
         string? error;

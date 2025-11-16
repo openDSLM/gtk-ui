@@ -5,11 +5,11 @@
   <!-- interface-name camera_settings_page.ui -->
   <requires lib="gtk" version="4.0"/>
   <object class="GtkAdjustment" id="gallery_page_size_adjustment">
-    <property name="lower">1</property>
-    <property name="upper">48</property>
+    <property name="lower">2</property>
+    <property name="upper">6</property>
     <property name="step-increment">1</property>
-    <property name="page-increment">4</property>
-    <property name="value">4</property>
+    <property name="page-increment">1</property>
+    <property name="value">2</property>
   </object>
   <object class="GtkBox" id="settings_root">
     <property name="css-classes">settings-page</property>
@@ -170,7 +170,7 @@
                         <property name="spacing">8</property>
                         <child>
                           <object class="GtkLabel" id="gallery_page_size_label">
-                            <property name="label">Items per page</property>
+                            <property name="label">Grid rows</property>
                             <property name="halign">start</property>
                           </object>
                         </child>
@@ -178,7 +178,7 @@
                           <object class="GtkSpinButton" id="gallery_page_size_spin">
                             <property name="adjustment">gallery_page_size_adjustment</property>
                             <property name="numeric">true</property>
-                            <property name="value">4</property>
+                            <property name="value">2</property>
                             <property name="halign">start</property>
                           </object>
                         </child>

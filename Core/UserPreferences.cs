@@ -200,9 +200,17 @@ public sealed class UserPreferences
 
     private static PreferencesModel Normalize(PreferencesModel model)
     {
-        if (model.GalleryPageSize < 1 || model.GalleryPageSize > 48)
+        if (model.GalleryPageSize < 2 || model.GalleryPageSize > 6)
         {
-            model.GalleryPageSize = 4;
+            if (model.GalleryPageSize > 6)
+            {
+                int approxRows = (int)Math.Round(Math.Sqrt(model.GalleryPageSize));
+                model.GalleryPageSize = Math.Clamp(approxRows, 2, 6);
+            }
+            else
+            {
+                model.GalleryPageSize = 2;
+            }
         }
         if (!Enum.IsDefined(typeof(CaptureMode), model.CaptureMode))
         {
@@ -231,7 +239,7 @@ public sealed class UserPreferences
     private class PreferencesModel
     {
         public bool GalleryColorEnabled { get; set; } = true;
-        public int GalleryPageSize { get; set; } = 4;
+        public int GalleryPageSize { get; set; } = 2;
         public CaptureMode CaptureMode { get; set; } = CaptureMode.Photo;
         public double VideoFps { get; set; } = 24.0;
         public double VideoShutterAngle { get; set; } = 180.0;

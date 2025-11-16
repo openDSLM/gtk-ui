@@ -19,7 +19,7 @@ public sealed class CameraState
     private readonly ReadOnlyCollection<string> _recentCaptureView;
     private bool _galleryColorEnabled = true;
     private int _galleryPageIndex;
-    private int _galleryPageSize = 4;
+    private int _galleryPageSize = 2;
     private CaptureMode _captureMode = CaptureMode.Photo;
     private double _videoFps = 24.0;
     private double _videoShutterAngle = 180.0;
@@ -34,6 +34,7 @@ public sealed class CameraState
     private string? _activeTimelapsePath;
     private readonly UserPreferences _preferences;
     private CameraMetadataSnapshot _metadataSnapshot = CameraMetadataSnapshot.Empty;
+    private int ItemsPerGalleryPage => Math.Max(1, _galleryPageSize * _galleryPageSize);
 
     public CameraState()
     {
@@ -363,7 +364,8 @@ public sealed class CameraState
     public int GetGalleryPageCount()
     {
         if (_recentCaptures.Count == 0) return 0;
-        return (_recentCaptures.Count + _galleryPageSize - 1) / _galleryPageSize;
+        int perPage = ItemsPerGalleryPage;
+        return (_recentCaptures.Count + perPage - 1) / perPage;
     }
 
     public IReadOnlyList<string> GetGalleryPageItems()
@@ -386,12 +388,13 @@ public sealed class CameraState
             GalleryPageIndexChanged?.Invoke(this, clampedIndex);
         }
 
-        int start = clampedIndex * _galleryPageSize;
+        int perPage = ItemsPerGalleryPage;
+        int start = clampedIndex * perPage;
         if (start >= _recentCaptures.Count)
         {
-            start = Math.Max(0, _recentCaptures.Count - _galleryPageSize);
+            start = Math.Max(0, _recentCaptures.Count - perPage);
         }
-        int count = Math.Clamp(_recentCaptures.Count - start, 0, _galleryPageSize);
+        int count = Math.Clamp(_recentCaptures.Count - start, 0, perPage);
         if (count <= 0)
         {
             return Array.Empty<string>();
@@ -405,7 +408,7 @@ public sealed class CameraState
         get => _galleryPageSize;
         set
         {
-            int clamped = Math.Clamp(value, 1, 48);
+            int clamped = Math.Clamp(value, 2, 6);
             if (_galleryPageSize == clamped) return;
             _galleryPageSize = clamped;
             _preferences.GalleryPageSize = clamped;
