@@ -27,6 +27,8 @@ public sealed class CameraApp : IDisposable
 
     private void OnActivate()
     {
+        IconThemeHelper.EnsureCustomIcons();
+
         var builder = new MainWindowBuilder(_state, _dispatcher, _controller);
         _window = builder.Build(_application);
         _controller.AttachView(_window.Picture, _window.Hud);

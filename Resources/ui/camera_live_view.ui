@@ -35,33 +35,40 @@
       </object>
     </child>
     <child type="overlay">
-      <object class="GtkBox" id="control_panel">
+      <object class="GtkBox" id="side_button_column">
         <property name="orientation">vertical</property>
         <property name="spacing">8</property>
         <property name="halign">end</property>
-        <property name="valign">start</property>
-        <property name="margin-top">12</property>
-        <property name="margin-end">12</property>
-        <property name="css-classes">control-panel</property>
+        <property name="valign">center</property>
+        <property name="margin-end">16</property>
+        <property name="css-classes">side-button-column</property>
         <child>
           <object class="GtkButton" id="settings_button">
-            <property name="label">Settings</property>
-            <property name="css-classes">control-button</property>
-            <property name="halign">fill</property>
+            <property name="css-classes">side-button</property>
           </object>
         </child>
         <child>
           <object class="GtkButton" id="gallery_button">
-            <property name="label">Gallery</property>
-            <property name="css-classes">control-button</property>
-            <property name="halign">fill</property>
+            <property name="css-classes">side-button</property>
           </object>
         </child>
+      </object>
+    </child>
+    <child type="overlay">
+      <object class="GtkBox" id="bottom_bar">
+        <property name="orientation">horizontal</property>
+        <property name="spacing">12</property>
+        <property name="hexpand">true</property>
+        <property name="halign">center</property>
+        <property name="valign">end</property>
+        <property name="margin-start">24</property>
+        <property name="margin-end">24</property>
+        <property name="margin-bottom">16</property>
+        <property name="css-classes">bottom-control-bar</property>
         <child>
           <object class="GtkStack" id="mode_stack">
-            <property name="hexpand">true</property>
-            <property name="vexpand">true</property>
             <property name="transition-type">crossfade</property>
+            <property name="hexpand">true</property>
           </object>
         </child>
       </object>

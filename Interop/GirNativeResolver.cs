@@ -12,6 +12,9 @@ public static class GirNativeResolver
         ["GstVideo"]   = "libgstvideo-1.0.so.0",
         ["GstApp"]     = "libgstapp-1.0.so.0",
         ["GstPbutils"] = "libgstpbutils-1.0.so.0",
+        ["Gdk"]        = "libgdk-4.so.1",
+        ["Gsk"]        = "libgsk-4.so.1",
+        ["GdkPixbuf"]  = "libgdk_pixbuf-2.0.so.0",
     };
 
     public static void RegisterFor(params Assembly[] assemblies)

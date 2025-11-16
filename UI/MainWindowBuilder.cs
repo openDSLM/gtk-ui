@@ -57,6 +57,7 @@ public sealed class MainWindowBuilder
         modeStack.SetVisibleChild(photoRoot);
 
         var photoView = new PhotoControlsView(photoRoot, autoToggle, isoBox, shutterBox, captureButton);
+        ApplyButtonIcons(settingsButton, galleryButton, captureButton);
 
         using var settingsBuilder = Builder.NewFromFile(ResolveLayoutPath(SettingsLayoutFileName));
         var settingsRoot = Require<Box>(settingsBuilder, "settings_root");
@@ -169,6 +170,69 @@ public sealed class MainWindowBuilder
         headerBar.SetTitleWidget(titleLabel);
 
         window.SetTitlebar(headerBar);
+    }
+
+    private void ApplyButtonIcons(Button settingsButton, Button galleryButton, Button captureButton)
+    {
+        SetButtonIcon(settingsButton, "settings-symbolic.svg");
+        SetButtonIcon(galleryButton, "gallery-symbolic.svg");
+        SetCaptureButtonIcon(captureButton, "capture-symbolic.svg");
+    }
+
+    private static void SetButtonIcon(Button button, string iconFile)
+    {
+        var path = ResolveIconPath(iconFile);
+        if (path is null)
+        {
+            return;
+        }
+
+        var picture = Picture.NewForFilename(path);
+        picture.CanShrink = true;
+        picture.WidthRequest = 32;
+        picture.HeightRequest = 32;
+        picture.AddCssClass("icon-image");
+        button.SetChild(picture);
+    }
+
+    private static void SetCaptureButtonIcon(Button button, string iconFile)
+    {
+        var path = ResolveIconPath(iconFile);
+        if (path is null)
+        {
+            return;
+        }
+
+        var picture = Picture.NewForFilename(path);
+        picture.CanShrink = true;
+        picture.WidthRequest = 20;
+        picture.HeightRequest = 20;
+        picture.AddCssClass("icon-image");
+
+        var label = Gtk.Label.New("CAPTURE");
+        label.AddCssClass("capture-label");
+
+        var box = Gtk.Box.New(Orientation.Horizontal, 6);
+        box.Append(picture);
+        box.Append(label);
+
+        button.SetChild(box);
+    }
+
+    private static string? ResolveIconPath(string fileName)
+    {
+        string? baseDir = AppContext.BaseDirectory;
+        if (!string.IsNullOrEmpty(baseDir))
+        {
+            string candidate = Path.Combine(baseDir, "Resources", "icons", "hicolor", "scalable", "actions", fileName);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        string fallback = Path.Combine(Environment.CurrentDirectory, "Resources", "icons", "hicolor", "scalable", "actions", fileName);
+        return File.Exists(fallback) ? fallback : null;
     }
 
     private static T Require<T>(Builder builder, string id) where T : class
