@@ -8,18 +8,47 @@ public static class StyleInstaller
         {
             var css = CssProvider.New();
             string cssStr = @"
+@define-color panel_bg shade(@window_bg_color, 0.96);
+@define-color panel_border @borders;
+@define-color control_bg shade(@window_bg_color, 1.02);
+@define-color control_border @borders;
+
+window.camera-window {
+  background-color: #000000;
+}
+
+overlay.live-view-root {
+  padding: 0;
+  background-color: transparent;
+}
+
+overlay.live-view-root picture.live-view-picture {
+  background-color: transparent;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+overlay.live-view-root .live-view-scrim {
+  background-image: radial-gradient(circle at center, rgba(0,0,0,0.35), transparent 70%);
+  border-radius: 0;
+}
+
 overlay > box.control-panel {
-  background-color: rgba(36, 36, 36, 0.78);
-  border-radius: 16px;
-  padding: 18px;
-  box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+  background-color: @panel_bg;
+  border-radius: 28px;
+  padding: 20px;
+  border: 1px solid @panel_border;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
+  color: @window_fg_color;
 }
 
 overlay > box#mode_overlay {
-  background-color: rgba(36, 36, 36, 0.78);
-  border-radius: 16px;
-  padding: 10px 16px;
-  box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+  background-color: @panel_bg;
+  border-radius: 999px;
+  padding: 8px 14px;
+  border: 1px solid @panel_border;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.32);
 }
 
 overlay > box#mode_overlay .control-button {
@@ -28,15 +57,15 @@ overlay > box#mode_overlay .control-button {
 }
 
 overlay > box.control-panel label.control-section-label {
-  color: #f5f5f5;
+  color: @window_fg_color;
   font-weight: 600;
   margin-top: 10px;
   margin-bottom: 4px;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
 }
 
 overlay > box.control-panel label.control-inline-label {
-  color: #f0f0f0;
+  color: @window_fg_color;
   font-weight: 600;
   margin-right: 10px;
 }
@@ -44,22 +73,38 @@ overlay > box.control-panel label.control-inline-label {
 overlay > box.control-panel .control-input,
 overlay > box.control-panel .control-toggle,
 overlay > box.control-panel .control-button {
-  background-color: rgba(64, 64, 64, 0.88);
-  color: #fefefe;
-  border-radius: 12px;
-  padding: 6px 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+  background-color: @control_bg;
+  color: @window_fg_color;
+  border-radius: 16px;
+  padding: 4px 12px;
+  border: 1px solid @control_border;
+  min-height: 36px;
+  margin: 0;
+  box-shadow: none;
 }
 
 overlay > box.control-panel scale.control-input trough {
-  background-color: rgba(28, 28, 28, 0.65);
+  background-color: rgba(28, 28, 28, 0.45);
   border-radius: 999px;
 }
 
 overlay > box.control-panel scale.control-input highlight {
-  background-color: #f1b733;
+  background-color: @theme_selected_bg_color;
   border-radius: 999px;
+}
+
+overlay > box.control-panel combobox box,
+overlay > box.control-panel combobox button,
+overlay > box.control-panel combobox entry {
+  padding: 0;
+  min-height: inherit;
+}
+
+overlay > box.control-panel combobox popover {
+  background-color: @control_bg;
+  color: @window_fg_color;
+  border-radius: 14px;
+  padding: 8px;
 }
 
 overlay label.hud-readout {
@@ -70,51 +115,34 @@ overlay label.hud-readout {
   box-shadow: 0 6px 22px rgba(0,0,0,0.5);
 }
 
-/* Overrides: black text for dropdowns and Capture DNG button */
-overlay > box.control-panel .control-input,
-overlay > box.control-panel .control-button {
-  color: #000000;
-  background-color: rgba(255,255,255,0.92);
-  border: 1px solid rgba(0,0,0,0.12);
-  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-}
-overlay > box.control-panel combobox popover,
-overlay > box.control-panel combobox popover label {
-  color: #000000;
-}
-overlay > box.control-panel combobox popover {
-  background-color: rgba(255,255,255,0.98);
-}
-
 box.settings-page {
-  background-color: rgba(36, 36, 36, 0.82);
-  border-radius: 24px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.42);
-  color: #f5f5f5;
+  background-color: color-mix(in srgb, @window_bg_color 97%, transparent);
+  border-radius: 32px;
+  box-shadow: 0 22px 48px rgba(0,0,0,0.3);
+  color: @window_fg_color;
+  border: 1px solid @panel_border;
+  padding: 32px;
 }
 
 box.settings-page label {
-  color: #f5f5f5;
+  color: @window_fg_color;
 }
 
 label.settings-title {
   font-weight: 700;
   font-size: 20px;
-  letter-spacing: 0.6px;
-  color: #f5f5f5;
+  letter-spacing: 0.4px;
 }
 
 .settings-page button.control-button,
 box.settings-page button.control-button {
-  color: #000000;
-  background-color: rgba(255,255,255,0.92);
-  border: 1px solid rgba(0,0,0,0.12);
-  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-}
-
-.settings-page button.control-button label,
-box.settings-page button.control-button label {
-  color: #000000;
+  color: @window_fg_color;
+  background-color: @control_bg;
+  border: 1px solid @control_border;
+  border-radius: 999px;
+  padding: 6px 18px;
+  min-height: 36px;
+  box-shadow: none;
 }
 
 label.settings-section-label {
@@ -125,79 +153,89 @@ label.settings-section-label {
 
 .settings-page .settings-input,
 box.settings-page .settings-input {
-  background-color: rgba(255,255,255,0.92);
-  color: #000000;
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,0.12);
-  padding: 6px 12px;
-  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+  background-color: @control_bg;
+  color: @window_fg_color;
+  border-radius: 14px;
+  border: 1px solid @control_border;
+  padding: 6px 10px;
+  min-height: 36px;
 }
 
 box.settings-page entry.settings-input {
   min-width: 280px;
 }
+
 .text-black {
-  color: #000000;
+  color: @window_fg_color;
 }
 
 label.gallery-title {
   font-weight: 700;
   font-size: 24px;
-  letter-spacing: 0.6px;
-  color: #f5f5f5;
+  letter-spacing: 0.5px;
+  color: @window_fg_color;
 }
 
 flowboxchild.gallery-thumb {
-  background-color: rgba(36, 36, 36, 0.78);
-  border-radius: 18px;
+  background-color: @panel_bg;
+  border-radius: 20px;
   padding: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  box-shadow: 0 10px 32px rgba(0,0,0,0.45);
   min-width: 240px;
+  border: 1px solid @panel_border;
 }
 
 flowboxchild.gallery-thumb picture.gallery-thumb-picture {
   background-color: rgba(0, 0, 0, 0.35);
-  border-radius: 12px;
+  border-radius: 14px;
   min-width: 240px;
   min-height: 160px;
 }
 
 flowboxchild.gallery-thumb picture.gallery-thumb-picture-missing {
-  background-color: rgba(64, 64, 64, 0.65);
+  background-color: rgba(64, 64, 64, 0.5);
   min-width: 240px;
   min-height: 160px;
 }
 
 .gallery-caption {
   font-weight: 600;
-  color: #f5f5f5;
+  color: @window_fg_color;
 }
 
 .gallery-error {
-  color: #ffb347;
+  color: @error_color;
   font-size: 12px;
 }
 
 label.gallery-page-label {
-  color: #f5f5f5;
+  color: @window_fg_color;
   font-weight: 600;
 }
 
 label.gallery-settings-hint {
-  color: rgba(255,255,255,0.78);
+  color: color-mix(in srgb, @window_fg_color 70%, transparent);
   font-size: 12px;
 }
 
-stackswitcher.settings-tab-switcher button,
-stackswitcher.settings-tab-switcher button label {
-  color: #000000;
-  background-color: rgba(255,255,255,0.92);
+stackswitcher.settings-tab-switcher {
+  margin-bottom: 12px;
 }
 
-stackswitcher.settings-tab-switcher button:checked,
+stackswitcher.settings-tab-switcher button {
+  border-radius: 999px;
+  padding: 4px 16px;
+  border: 1px solid transparent;
+  color: @window_fg_color;
+}
+
+stackswitcher.settings-tab-switcher button:checked {
+  background-color: @control_bg;
+  border-color: @control_border;
+}
+
 stackswitcher.settings-tab-switcher button:checked label {
-  color: #000000;
-  background-color: rgba(238,238,238,0.92);
+  color: @window_fg_color;
 }
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);

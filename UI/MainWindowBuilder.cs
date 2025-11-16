@@ -32,9 +32,11 @@ public sealed class MainWindowBuilder
     {
         using var mainBuilder = Builder.NewFromFile(ResolveLayoutPath(MainLayoutFileName));
 
-        var window = Require<ApplicationWindow>(mainBuilder, "main_window");
+        var window = Require<Gtk.ApplicationWindow>(mainBuilder, "main_window");
         window.SetApplication(app);
+        window.AddCssClass("camera-window");
         var stack = Require<Stack>(mainBuilder, "page_stack");
+        InstallHeaderBar(window);
 
         using var liveBuilder = Builder.NewFromFile(ResolveLayoutPath(LiveLayoutFileName));
         var liveOverlay = Require<Overlay>(liveBuilder, "live_overlay");
@@ -157,6 +159,16 @@ public sealed class MainWindowBuilder
             settingsView,
             galleryView.Root,
             galleryView);
+    }
+
+    private static void InstallHeaderBar(Gtk.ApplicationWindow window)
+    {
+        var headerBar = Gtk.HeaderBar.New();
+        headerBar.ShowTitleButtons = true;
+        var titleLabel = Gtk.Label.New("openDSLM – Live Preview + RAW");
+        headerBar.SetTitleWidget(titleLabel);
+
+        window.SetTitlebar(headerBar);
     }
 
     private static T Require<T>(Builder builder, string id) where T : class

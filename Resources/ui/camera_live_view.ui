@@ -5,11 +5,22 @@
   <object class="GtkOverlay" id="live_overlay">
     <property name="hexpand">true</property>
     <property name="vexpand">true</property>
+    <property name="css-classes">live-view-root</property>
     <child>
       <object class="GtkPicture" id="live_picture">
         <property name="hexpand">true</property>
         <property name="vexpand">true</property>
         <property name="content-fit">contain</property>
+        <property name="css-classes">live-view-picture</property>
+      </object>
+    </child>
+    <child type="overlay">
+      <object class="GtkBox" id="live_backdrop">
+        <property name="hexpand">true</property>
+        <property name="vexpand">true</property>
+        <property name="css-classes">live-view-scrim</property>
+        <property name="focusable">false</property>
+        <property name="sensitive">false</property>
       </object>
     </child>
     <child type="overlay">

@@ -3,15 +3,21 @@
 <interface>
   <requires lib="gtk" version="4.0"/>
   <requires lib="adw" version="1.0"/>
-  <object class="AdwApplicationWindow" id="main_window">
+  <object class="GtkApplicationWindow" id="main_window">
     <property name="default-width">1280</property>
     <property name="default-height">720</property>
     <property name="title">openDSLM – Live Preview + RAW (DNG)</property>
     <child>
-      <object class="GtkStack" id="page_stack">
+      <object class="GtkOverlay" id="main_root_overlay">
         <property name="hexpand">true</property>
         <property name="vexpand">true</property>
-        <property name="transition-type">slide-left-right</property>
+        <child>
+          <object class="GtkStack" id="page_stack">
+            <property name="hexpand">true</property>
+            <property name="vexpand">true</property>
+            <property name="transition-type">slide-left-right</property>
+          </object>
+        </child>
       </object>
     </child>
   </object>
