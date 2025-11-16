@@ -14,42 +14,53 @@
   <object class="GtkBox" id="settings_root">
     <property name="css-classes">settings-page</property>
     <property name="hexpand">true</property>
-    <property name="margin-bottom">32</property>
-    <property name="margin-end">32</property>
-    <property name="margin-start">32</property>
-    <property name="margin-top">32</property>
+    <property name="margin-bottom">0</property>
+    <property name="margin-end">0</property>
+    <property name="margin-start">0</property>
+    <property name="margin-top">0</property>
     <property name="orientation">vertical</property>
     <property name="spacing">16</property>
     <property name="vexpand">true</property>
     <child>
-      <object class="GtkButton" id="settings_close_button">
-        <property name="css-classes">control-button</property>
-        <property name="halign">start</property>
-        <property name="label">Back</property>
-      </object>
-    </child>
-    <child>
-      <object class="GtkLabel" id="settings_title">
-        <property name="css-classes">settings-title</property>
-        <property name="halign">start</property>
-        <property name="label">Settings</property>
+      <object class="GtkBox" id="settings_header_box">
+        <property name="orientation">horizontal</property>
+        <property name="spacing">12</property>
+        <property name="halign">fill</property>
+        <child>
+          <object class="GtkButton" id="settings_close_button">
+            <property name="css-classes">back-button</property>
+            <property name="label">Back</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel" id="settings_title">
+            <property name="css-classes">settings-title</property>
+            <property name="halign">start</property>
+            <property name="label">Settings</property>
+          </object>
+        </child>
       </object>
     </child>
     <child>
       <object class="GtkBox" id="settings_content_box">
+        <property name="css-classes">settings-content</property>
         <property name="hexpand">true</property>
-        <property name="orientation">vertical</property>
-        <property name="spacing">18</property>
+        <property name="orientation">horizontal</property>
+        <property name="spacing">24</property>
         <property name="vexpand">true</property>
         <child>
-          <object class="GtkStackSwitcher" id="settings_stack_switcher">
-            <property name="halign">start</property>
-            <property name="css-classes">settings-tab-switcher</property>
-            <property name="stack">settings_stack</property>
+          <object class="GtkFrame" id="settings_sidebar_frame">
+            <property name="css-classes">settings-sidebar-frame</property>
+            <child>
+              <object class="GtkStackSidebar" id="settings_sidebar">
+                <property name="stack">settings_stack</property>
+              </object>
+            </child>
           </object>
         </child>
         <child>
           <object class="GtkStack" id="settings_stack">
+            <property name="css-classes">settings-content-panel</property>
             <property name="hexpand">true</property>
             <property name="vexpand">true</property>
             <child>
@@ -239,15 +250,13 @@
                                     <property name="hexpand">true</property>
                                   </object>
                                 </child>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_make_effective_label">
-                                    <property name="wrap">true</property>
-                                    <property name="css-classes">metadata-effective-label</property>
-                                    <property name="label">Effective: -</property>
-                                  </object>
-                                </child>
+                            <child>
+                              <object class="GtkLabel" id="metadata_make_effective_label">
+                                <property name="visible">false</property>
                               </object>
                             </child>
+                          </object>
+                        </child>
                             <child>
                               <object class="GtkBox" id="metadata_model_row">
                                 <property name="orientation">vertical</property>
@@ -263,14 +272,12 @@
                                     <property name="hexpand">true</property>
                                   </object>
                                 </child>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_model_effective_label">
-                                    <property name="wrap">true</property>
-                                    <property name="css-classes">metadata-effective-label</property>
-                                    <property name="label">Effective: -</property>
-                                  </object>
-                                </child>
+                            <child>
+                              <object class="GtkLabel" id="metadata_model_effective_label">
+                                <property name="visible">false</property>
                               </object>
+                            </child>
+                          </object>
                             </child>
                             <child>
                               <object class="GtkBox" id="metadata_unique_row">
@@ -287,14 +294,12 @@
                                     <property name="hexpand">true</property>
                                   </object>
                                 </child>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_unique_effective_label">
-                                    <property name="wrap">true</property>
-                                    <property name="css-classes">metadata-effective-label</property>
-                                    <property name="label">Effective: -</property>
-                                  </object>
-                                </child>
+                            <child>
+                              <object class="GtkLabel" id="metadata_unique_effective_label">
+                                <property name="visible">false</property>
                               </object>
+                            </child>
+                          </object>
                             </child>
                             <child>
                               <object class="GtkBox" id="metadata_software_row">
@@ -311,14 +316,12 @@
                                     <property name="hexpand">true</property>
                                   </object>
                                 </child>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_software_effective_label">
-                                    <property name="wrap">true</property>
-                                    <property name="css-classes">metadata-effective-label</property>
-                                    <property name="label">Effective: -</property>
-                                  </object>
-                                </child>
+                            <child>
+                              <object class="GtkLabel" id="metadata_software_effective_label">
+                                <property name="visible">false</property>
                               </object>
+                            </child>
+                          </object>
                             </child>
                             <child>
                               <object class="GtkBox" id="metadata_artist_row">
@@ -335,14 +338,12 @@
                                     <property name="hexpand">true</property>
                                   </object>
                                 </child>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_artist_effective_label">
-                                    <property name="wrap">true</property>
-                                    <property name="css-classes">metadata-effective-label</property>
-                                    <property name="label">Effective: -</property>
-                                  </object>
-                                </child>
+                            <child>
+                              <object class="GtkLabel" id="metadata_artist_effective_label">
+                                <property name="visible">false</property>
                               </object>
+                            </child>
+                          </object>
                             </child>
                             <child>
                               <object class="GtkBox" id="metadata_copyright_row">
@@ -359,14 +360,12 @@
                                     <property name="hexpand">true</property>
                                   </object>
                                 </child>
-                                <child>
-                                  <object class="GtkLabel" id="metadata_copyright_effective_label">
-                                    <property name="wrap">true</property>
-                                    <property name="css-classes">metadata-effective-label</property>
-                                    <property name="label">Effective: -</property>
-                                  </object>
-                                </child>
+                            <child>
+                              <object class="GtkLabel" id="metadata_copyright_effective_label">
+                                <property name="visible">false</property>
                               </object>
+                            </child>
+                          </object>
                             </child>
                           </object>
                         </child>

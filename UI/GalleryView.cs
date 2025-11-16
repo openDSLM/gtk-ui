@@ -222,18 +222,18 @@ public sealed class GalleryView
 
         var child = FlowBoxChild.New();
         child.AddCssClass("gallery-thumb");
-        child.SetSizeRequest(ThumbnailWidth + 24, ThumbnailHeight + 72);
+        child.SetSizeRequest(ThumbnailWidth + 4, ThumbnailHeight + 4);
 
-        var container = Box.New(Orientation.Vertical, 6);
+        var container = Box.New(Orientation.Vertical, 0);
         container.WidthRequest = ThumbnailWidth;
-        container.SetSizeRequest(ThumbnailWidth, ThumbnailHeight + 64);
+        container.SetSizeRequest(ThumbnailWidth, ThumbnailHeight);
         container.AddCssClass("gallery-thumb-body");
 
         var picture = new Picture
         {
             WidthRequest = ThumbnailWidth,
             HeightRequest = ThumbnailHeight,
-            ContentFit = ContentFit.Cover
+            ContentFit = ContentFit.ScaleDown
         };
         picture.SetSizeRequest(ThumbnailWidth, ThumbnailHeight);
         picture.AddCssClass("gallery-thumb-picture");
@@ -256,19 +256,15 @@ public sealed class GalleryView
             captionText = displayPath;
         }
 
-        var caption = Label.New(captionText ?? string.Empty);
-        caption.Halign = Align.Start;
-        caption.Wrap = true;
-        caption.AddCssClass("gallery-caption");
-        container.Append(caption);
-
+        string tooltip = captionText ?? string.Empty;
         if (!string.IsNullOrEmpty(error))
         {
-            var errorLabel = Label.New(error ?? string.Empty);
-            errorLabel.Halign = Align.Start;
-            errorLabel.Wrap = true;
-            errorLabel.AddCssClass("gallery-error");
-            container.Append(errorLabel);
+            tooltip = $"{tooltip}\n{error}";
+        }
+
+        if (!string.IsNullOrEmpty(tooltip))
+        {
+            child.SetTooltipText(tooltip);
         }
 
         child.SetChild(container);

@@ -2,20 +2,23 @@
 <interface>
   <requires lib="gtk" version="4.0"/>
   <object class="GtkBox" id="gallery_root">
+    <property name="css-classes">gallery-page</property>
     <property name="orientation">vertical</property>
-    <property name="spacing">12</property>
+    <property name="spacing">16</property>
     <property name="hexpand">true</property>
     <property name="vexpand">true</property>
-    <property name="margin-top">24</property>
-    <property name="margin-bottom">24</property>
-    <property name="margin-start">24</property>
-    <property name="margin-end">24</property>
+    <property name="margin-top">0</property>
+    <property name="margin-bottom">0</property>
+    <property name="margin-start">0</property>
+    <property name="margin-end">0</property>
     <child>
       <object class="GtkBox" id="gallery_header">
+        <property name="css-classes">gallery-header</property>
         <property name="spacing">8</property>
         <property name="hexpand">true</property>
         <child>
           <object class="GtkButton" id="gallery_back_button">
+            <property name="css-classes">back-button</property>
             <property name="label">← Back to Live</property>
             <property name="halign">start</property>
           </object>
@@ -32,6 +35,7 @@
     </child>
     <child>
       <object class="GtkStack" id="gallery_stack">
+        <property name="css-classes">gallery-content-panel</property>
         <property name="hexpand">true</property>
         <property name="vexpand">true</property>
         <property name="transition-type">crossfade</property>
@@ -66,15 +70,15 @@
                 <property name="vexpand">true</property>
                 <child>
                   <object class="GtkFlowBox" id="gallery_flow">
-                    <property name="column-spacing">12</property>
-                    <property name="row-spacing">12</property>
-                    <property name="margin-bottom">12</property>
-                    <property name="margin-end">12</property>
-                    <property name="margin-start">12</property>
-                    <property name="margin-top">12</property>
+                    <property name="column-spacing">2</property>
+                    <property name="row-spacing">2</property>
+                    <property name="margin-bottom">0</property>
+                    <property name="margin-end">0</property>
+                    <property name="margin-start">0</property>
+                    <property name="margin-top">0</property>
                     <property name="selection-mode">single</property>
                     <property name="min-children-per-line">2</property>
-                    <property name="max-children-per-line">2</property>
+                    <property name="max-children-per-line">4</property>
                   </object>
                 </child>
               </object>
@@ -91,6 +95,19 @@
                 <property name="hexpand">true</property>
                 <property name="vexpand">true</property>
                 <child>
+                  <object class="GtkBox" id="gallery_viewer_header">
+                    <property name="css-classes">gallery-viewer-header</property>
+                    <property name="spacing">8</property>
+                    <property name="halign">start</property>
+                    <child>
+                      <object class="GtkButton" id="gallery_viewer_back_button">
+                        <property name="css-classes">back-button</property>
+                        <property name="label">Back to Grid</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
                   <object class="GtkOverlay" id="gallery_viewer_overlay">
                     <property name="hexpand">true</property>
                     <property name="vexpand">true</property>
@@ -99,20 +116,6 @@
                         <property name="hexpand">true</property>
                         <property name="vexpand">true</property>
                         <property name="content-fit">contain</property>
-                      </object>
-                    </child>
-                    <child type="overlay">
-                      <object class="GtkBox" id="gallery_viewer_controls">
-                        <property name="halign">end</property>
-                        <property name="valign">start</property>
-                        <property name="spacing">6</property>
-                        <property name="margin-top">12</property>
-                        <property name="margin-end">12</property>
-                        <child>
-                          <object class="GtkButton" id="gallery_viewer_back_button">
-                            <property name="label">Back to Grid</property>
-                          </object>
-                        </child>
                       </object>
                     </child>
                   </object>
@@ -131,6 +134,7 @@
     </child>
     <child>
       <object class="GtkBox" id="gallery_footer">
+        <property name="css-classes">gallery-footer</property>
         <property name="orientation">horizontal</property>
         <property name="spacing">12</property>
         <property name="halign">center</property>

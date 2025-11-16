@@ -683,18 +683,12 @@ public sealed class MainWindowBuilder
         if (view.MetadataCopyrightEntry is not null)
             SetEntryText(view.MetadataCopyrightEntry, snapshot.CopyrightOverride ?? string.Empty);
 
-        if (view.MetadataMakeEffectiveLabel is not null)
-            SetEffectiveLabel(view.MetadataMakeEffectiveLabel, snapshot.EffectiveMake);
-        if (view.MetadataModelEffectiveLabel is not null)
-            SetEffectiveLabel(view.MetadataModelEffectiveLabel, snapshot.EffectiveModel);
-        if (view.MetadataUniqueEffectiveLabel is not null)
-            SetEffectiveLabel(view.MetadataUniqueEffectiveLabel, snapshot.EffectiveUniqueModel);
-        if (view.MetadataSoftwareEffectiveLabel is not null)
-            SetEffectiveLabel(view.MetadataSoftwareEffectiveLabel, snapshot.EffectiveSoftware);
-        if (view.MetadataArtistEffectiveLabel is not null)
-            SetEffectiveLabel(view.MetadataArtistEffectiveLabel, snapshot.EffectiveArtist);
-        if (view.MetadataCopyrightEffectiveLabel is not null)
-            SetEffectiveLabel(view.MetadataCopyrightEffectiveLabel, snapshot.EffectiveCopyright);
+        SetPlaceholder(view.MetadataMakeEntry, snapshot.EffectiveMake);
+        SetPlaceholder(view.MetadataModelEntry, snapshot.EffectiveModel);
+        SetPlaceholder(view.MetadataUniqueEntry, snapshot.EffectiveUniqueModel);
+        SetPlaceholder(view.MetadataSoftwareEntry, snapshot.EffectiveSoftware);
+        SetPlaceholder(view.MetadataArtistEntry, snapshot.EffectiveArtist);
+        SetPlaceholder(view.MetadataCopyrightEntry, snapshot.EffectiveCopyright);
     }
 
     private MetadataOverrides BuildMetadataOverrides(CameraSettingsView view)
@@ -715,11 +709,11 @@ public sealed class MainWindowBuilder
         return string.IsNullOrEmpty(text) ? null : text;
     }
 
-    private static void SetEffectiveLabel(Label label, string? value)
+    private static void SetPlaceholder(Entry? entry, string? value)
     {
-        if (label is null) return;
-        string text = string.IsNullOrWhiteSpace(value) ? "Effective: (default)" : $"Effective: {value}";
-        label.SetText(text);
+        if (entry is null) return;
+        string placeholder = string.IsNullOrWhiteSpace(value) ? "(default)" : value!;
+        entry.PlaceholderText = placeholder;
     }
 
 
