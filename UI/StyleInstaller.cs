@@ -14,8 +14,8 @@ public static class StyleInstaller
 @define-color control_border @borders;
 
 window.camera-window {
-  background-color: #040404;
-  color: #f6f6f6;
+  background-color: @window_bg_color;
+  color: @window_fg_color;
 }
 
 overlay.live-view-root {
@@ -162,96 +162,8 @@ overlay label.hud-readout {
   text-transform: uppercase;
 }
 
-.settings-sidebar-frame {
-  background-color: shade(@window_bg_color, 1.08);
-  border-radius: 0;
-  padding: 0;
-  border: none;
-  min-width: 220px;
-}
-
-.settings-sidebar-frame stacksidebar {
-  min-width: 220px;
-  padding: 18px 12px;
-  background-color: transparent;
-  border-right: 1px solid @panel_border;
-}
-
-.settings-sidebar-frame stacksidebar row {
-  border-radius: 4px;
-  padding: 10px 12px;
-  font-weight: 600;
-}
-
-.settings-sidebar-frame stacksidebar row:selected {
-  background-color: shade(@window_bg_color, 0.8);
-  color: @window_fg_color;
-  border-left: 3px solid @theme_selected_bg_color;
-  border-radius: 4px;
-}
-
-box.settings-page {
-  background-color: shade(@window_bg_color, 1.04);
-  border-radius: 0;
-  box-shadow: none;
-  color: @window_fg_color;
-  border: none;
-  padding: 32px 48px;
-}
-
-.settings-content {
-  column-gap: 32px;
-  row-gap: 0;
-}
-
-.settings-content-panel {
-  background-color: shade(@window_bg_color, 1.1);
-  border-radius: 8px;
-  border: 1px solid @panel_border;
-  padding: 24px;
-}
-
-box.settings-page label {
-  color: @window_fg_color;
-}
-
-label.settings-title {
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.2px;
-}
-
-.settings-page button.control-button,
-box.settings-page button.control-button {
-  color: @window_fg_color;
-  background-color: @control_bg;
-  border: 1px solid @control_border;
-  border-radius: 8px;
-  padding: 6px 14px;
-  min-height: 32px;
-  box-shadow: none;
-}
-
-label.settings-section-label {
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  margin-bottom: 2px;
-  text-transform: uppercase;
-  font-size: 12px;
-}
-
-.settings-page .settings-input,
-box.settings-page .settings-input {
-  background-color: shade(@window_bg_color, 0.94);
-  color: @window_fg_color;
-  border-radius: 6px;
-  border: 1px solid @control_border;
-  padding: 6px 10px;
-  min-height: 32px;
-}
-
-box.settings-page entry.settings-input {
-  min-width: 240px;
+.metadata-entry {
+  min-width: 360px;
 }
 
 .gallery-page {

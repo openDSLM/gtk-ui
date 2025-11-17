@@ -25,6 +25,7 @@ public sealed class CameraController : IDisposable
     private Element? _sink;
     private Picture? _picture;
     private Label? _hud;
+    private ZoomPanController? _liveViewZoom;
     private bool _rebuildScheduled;
     private uint _delayedRebuildId;
 
@@ -86,6 +87,8 @@ public sealed class CameraController : IDisposable
 
     public void AttachView(Picture picture, Label hud)
     {
+        _liveViewZoom?.Dispose();
+        _liveViewZoom = new ZoomPanController(picture);
         _picture = picture;
         _hud = hud;
     }
@@ -117,6 +120,8 @@ public sealed class CameraController : IDisposable
         _src = null;
         _sink = null;
 
+        _liveViewZoom?.Dispose();
+        _liveViewZoom = null;
         _daemonClient.Dispose();
     }
 

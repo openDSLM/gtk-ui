@@ -1,3 +1,4 @@
+using Adw;
 using Gtk;
 
 /// <summary>
@@ -14,13 +15,13 @@ public sealed record PhotoControlsView(
 /// Represents the root GTK widgets that make up the camera UI.
 /// </summary>
 public sealed record CameraWindow(
-    ApplicationWindow Window,
+    Gtk.ApplicationWindow Window,
     Picture Picture,
     Label Hud,
     Button SettingsButton,
     Button GalleryButton,
     PhotoControlsView PhotoControls,
-    Stack PageStack,
+    Adw.ViewStack PageStack,
     Widget LivePage,
     CameraSettingsView SettingsView,
     Widget GalleryPage,

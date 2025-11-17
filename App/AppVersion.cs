@@ -6,5 +6,5 @@ public static class AppVersion
     /// <summary>
     /// Human-friendly version displayed in the UI.
     /// </summary>
-    public const string Current = "0.1.0";
+    public const string Current = "0.2.0 (alpha)";
 }

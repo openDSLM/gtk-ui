@@ -16,16 +16,10 @@ public sealed record CameraSettingsView(
     Label InfoVersionLabel,
     Button DebugExitButton,
     Entry MetadataMakeEntry,
-    Label MetadataMakeEffectiveLabel,
     Entry MetadataModelEntry,
-    Label MetadataModelEffectiveLabel,
     Entry MetadataUniqueEntry,
-    Label MetadataUniqueEffectiveLabel,
     Entry MetadataSoftwareEntry,
-    Label MetadataSoftwareEffectiveLabel,
     Entry MetadataArtistEntry,
-    Label MetadataArtistEffectiveLabel,
     Entry MetadataCopyrightEntry,
-    Label MetadataCopyrightEffectiveLabel,
     Button MetadataApplyButton
 );

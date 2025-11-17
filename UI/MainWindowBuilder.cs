@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Adw;
 using Gtk;
 
 /// <summary>
@@ -21,6 +22,7 @@ public sealed class MainWindowBuilder
     private bool _suppressIsoChange;
     private bool _suppressShutterChange;
     private bool _suppressResolutionChange;
+    private bool _suppressGalleryRowsChange;
     private const int MinGalleryRows = 2;
     private const int MaxGalleryRows = 6;
 
@@ -39,9 +41,9 @@ public sealed class MainWindowBuilder
         using var mainBuilder = Builder.NewFromFile(ResolveLayoutPath(MainLayoutFileName));
 
         var window = Require<Gtk.ApplicationWindow>(mainBuilder, "main_window");
+        var stack = Require<Adw.ViewStack>(mainBuilder, "page_stack");
         window.SetApplication(app);
         window.AddCssClass("camera-window");
-        var stack = Require<Stack>(mainBuilder, "page_stack");
         if (!fullscreenMode)
         {
             InstallHeaderBar(window);
@@ -75,24 +77,41 @@ public sealed class MainWindowBuilder
         var outputDirEntry = Require<Entry>(settingsBuilder, "output_dir_entry");
         var outputDirApplyButton = Require<Button>(settingsBuilder, "output_dir_apply_button");
         var galleryColorToggle = Require<CheckButton>(settingsBuilder, "gallery_color_toggle");
-        var galleryRowsDecreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_decrease_button");
-        var galleryRowsValueLabelSettings = Require<Label>(settingsBuilder, "gallery_page_size_value");
-        var galleryRowsIncreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_increase_button");
+        var galleryRowsDecreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_decrease_button_settings");
+        var galleryRowsValueLabelSettings = Require<Label>(settingsBuilder, "gallery_page_size_value_settings");
+        var galleryRowsIncreaseButtonSettings = Require<Button>(settingsBuilder, "gallery_page_size_increase_button_settings");
         var infoVersionLabel = Require<Label>(settingsBuilder, "info_version_label");
         var debugExitButton = Require<Button>(settingsBuilder, "debug_exit_button");
         var metadataMakeEntry = Require<Entry>(settingsBuilder, "metadata_make_entry");
-        var metadataMakeEffectiveLabel = Require<Label>(settingsBuilder, "metadata_make_effective_label");
         var metadataModelEntry = Require<Entry>(settingsBuilder, "metadata_model_entry");
-        var metadataModelEffectiveLabel = Require<Label>(settingsBuilder, "metadata_model_effective_label");
         var metadataUniqueEntry = Require<Entry>(settingsBuilder, "metadata_unique_entry");
-        var metadataUniqueEffectiveLabel = Require<Label>(settingsBuilder, "metadata_unique_effective_label");
         var metadataSoftwareEntry = Require<Entry>(settingsBuilder, "metadata_software_entry");
-        var metadataSoftwareEffectiveLabel = Require<Label>(settingsBuilder, "metadata_software_effective_label");
         var metadataArtistEntry = Require<Entry>(settingsBuilder, "metadata_artist_entry");
-        var metadataArtistEffectiveLabel = Require<Label>(settingsBuilder, "metadata_artist_effective_label");
         var metadataCopyrightEntry = Require<Entry>(settingsBuilder, "metadata_copyright_entry");
-        var metadataCopyrightEffectiveLabel = Require<Label>(settingsBuilder, "metadata_copyright_effective_label");
         var metadataApplyButton = Require<Button>(settingsBuilder, "metadata_apply_button");
+
+        var metadataMakeLabel = Require<Label>(settingsBuilder, "metadata_make_label");
+        var metadataModelLabel = Require<Label>(settingsBuilder, "metadata_model_label");
+        var metadataUniqueLabel = Require<Label>(settingsBuilder, "metadata_unique_label");
+        var metadataSoftwareLabel = Require<Label>(settingsBuilder, "metadata_software_label");
+        var metadataArtistLabel = Require<Label>(settingsBuilder, "metadata_artist_label");
+        var metadataCopyrightLabel = Require<Label>(settingsBuilder, "metadata_copyright_label");
+
+        var metadataEntrySizeGroup = SizeGroup.New(SizeGroupMode.Horizontal);
+        metadataEntrySizeGroup.AddWidget(metadataMakeEntry);
+        metadataEntrySizeGroup.AddWidget(metadataModelEntry);
+        metadataEntrySizeGroup.AddWidget(metadataUniqueEntry);
+        metadataEntrySizeGroup.AddWidget(metadataSoftwareEntry);
+        metadataEntrySizeGroup.AddWidget(metadataArtistEntry);
+        metadataEntrySizeGroup.AddWidget(metadataCopyrightEntry);
+
+        var metadataLabelSizeGroup = SizeGroup.New(SizeGroupMode.Horizontal);
+        metadataLabelSizeGroup.AddWidget(metadataMakeLabel);
+        metadataLabelSizeGroup.AddWidget(metadataModelLabel);
+        metadataLabelSizeGroup.AddWidget(metadataUniqueLabel);
+        metadataLabelSizeGroup.AddWidget(metadataSoftwareLabel);
+        metadataLabelSizeGroup.AddWidget(metadataArtistLabel);
+        metadataLabelSizeGroup.AddWidget(metadataCopyrightLabel);
 
         var settingsView = new CameraSettingsView(
             settingsRoot,
@@ -107,17 +126,11 @@ public sealed class MainWindowBuilder
             infoVersionLabel,
             debugExitButton,
             metadataMakeEntry,
-            metadataMakeEffectiveLabel,
             metadataModelEntry,
-            metadataModelEffectiveLabel,
             metadataUniqueEntry,
-            metadataUniqueEffectiveLabel,
             metadataSoftwareEntry,
-            metadataSoftwareEffectiveLabel,
             metadataArtistEntry,
-            metadataArtistEffectiveLabel,
             metadataCopyrightEntry,
-            metadataCopyrightEffectiveLabel,
             metadataApplyButton);
 
         using var galleryBuilder = Builder.NewFromFile(ResolveLayoutPath(GalleryLayoutFileName));
@@ -191,16 +204,6 @@ public sealed class MainWindowBuilder
             galleryView);
     }
 
-    private static void InstallHeaderBar(Gtk.ApplicationWindow window)
-    {
-        var headerBar = Gtk.HeaderBar.New();
-        headerBar.ShowTitleButtons = true;
-        var titleLabel = Gtk.Label.New($"openDSLM v{AppVersion.Current} – Live Preview + RAW");
-        headerBar.SetTitleWidget(titleLabel);
-
-        window.SetTitlebar(headerBar);
-    }
-
     private void ApplyButtonIcons(Button settingsButton, Button galleryButton, Button captureButton)
     {
         SetButtonIcon(settingsButton, "settings-symbolic.svg");
@@ -262,6 +265,15 @@ public sealed class MainWindowBuilder
 
         string fallback = Path.Combine(Environment.CurrentDirectory, "Resources", "icons", "hicolor", "scalable", "actions", fileName);
         return File.Exists(fallback) ? fallback : null;
+    }
+
+    private static void InstallHeaderBar(Gtk.ApplicationWindow window)
+    {
+        var headerBar = Gtk.HeaderBar.New();
+        headerBar.ShowTitleButtons = true;
+        var titleLabel = Gtk.Label.New($"openDSLM v{AppVersion.Current} – Live Preview + RAW");
+        headerBar.SetTitleWidget(titleLabel);
+        window.SetTitlebar(headerBar);
     }
 
     private static T Require<T>(Builder builder, string id) where T : class
@@ -458,7 +470,7 @@ public sealed class MainWindowBuilder
         ArgumentNullException.ThrowIfNull(decreaseButton);
         ArgumentNullException.ThrowIfNull(increaseButton);
 
-        void UpdateRows(int rows)
+        void ApplyUiState(int rows)
         {
             rowsValueLabel.SetText(rows.ToString());
             decreaseButton.Sensitive = rows > MinGalleryRows;
@@ -466,27 +478,37 @@ public sealed class MainWindowBuilder
             applyRows?.Invoke(rows);
         }
 
-        UpdateRows(_state.GalleryPageSize);
+        ApplyUiState(_state.GalleryPageSize);
 
         decreaseButton.OnClicked += (_, __) =>
         {
+            if (_suppressGalleryRowsChange) return;
             int current = _state.GalleryPageSize;
-            if (current <= MinGalleryRows) return;
-            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(current - 1));
+            int next = current - 1;
+            if (next < MinGalleryRows) return;
+            _suppressGalleryRowsChange = true;
+            ApplyUiState(next);
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(next));
         };
 
         increaseButton.OnClicked += (_, __) =>
         {
+            if (_suppressGalleryRowsChange) return;
             int current = _state.GalleryPageSize;
-            if (current >= MaxGalleryRows) return;
-            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(current + 1));
+            int next = current + 1;
+            if (next > MaxGalleryRows) return;
+            _suppressGalleryRowsChange = true;
+            ApplyUiState(next);
+            _dispatcher.FireAndForget(AppActionId.SetGalleryPageSize, new SetGalleryPageSizePayload(next));
         };
 
         _state.GalleryPageSizeChanged += (_, rows) =>
         {
-            UpdateRows(rows);
+            ApplyUiState(rows);
+            _suppressGalleryRowsChange = false;
         };
     }
+
 
     private void ConfigureMetadataSettings(CameraSettingsView settingsView)
     {
@@ -549,7 +571,7 @@ public sealed class MainWindowBuilder
     }
 
     private void ConfigureNavigation(
-        Stack stack,
+        ViewStack stack,
         Widget livePage,
         Widget settingsPage,
         Widget galleryPage,
@@ -558,13 +580,31 @@ public sealed class MainWindowBuilder
         Button galleryButton,
         GalleryView galleryView)
     {
+        ArgumentNullException.ThrowIfNull(stack);
+        ArgumentNullException.ThrowIfNull(livePage);
+        ArgumentNullException.ThrowIfNull(settingsPage);
+        ArgumentNullException.ThrowIfNull(galleryPage);
+        ArgumentNullException.ThrowIfNull(settingsButton);
+        ArgumentNullException.ThrowIfNull(settingsCloseButton);
+        ArgumentNullException.ThrowIfNull(galleryButton);
+
         livePage.SetName("live-view");
         settingsPage.SetName("settings-view");
         galleryPage.SetName("gallery-view");
 
-        stack.AddChild(livePage);
-        stack.AddChild(settingsPage);
-        stack.AddChild(galleryPage);
+        static void ConfigurePage(ViewStackPage? page, string iconName)
+        {
+            if (page is null)
+            {
+                return;
+            }
+
+            page.SetIconName(iconName);
+        }
+
+        ConfigurePage(stack.AddTitled(livePage, "live-view", "Live"), "camera-photo-symbolic");
+        ConfigurePage(stack.AddTitled(settingsPage, "settings-view", "Settings"), "applications-system-symbolic");
+        ConfigurePage(stack.AddTitled(galleryPage, "gallery-view", "Gallery"), "view-grid-symbolic");
 
         void ShowLive()
         {
@@ -799,4 +839,5 @@ public sealed class MainWindowBuilder
     {
         entry.SetText(text ?? string.Empty);
     }
+
 }

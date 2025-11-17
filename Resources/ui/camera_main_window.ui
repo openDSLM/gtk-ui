@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Layout generated for Cambalache editing -->
 <interface>
   <requires lib="gtk" version="4.0"/>
   <requires lib="adw" version="1.0"/>
@@ -12,10 +11,9 @@
         <property name="hexpand">true</property>
         <property name="vexpand">true</property>
         <child>
-          <object class="GtkStack" id="page_stack">
+          <object class="AdwViewStack" id="page_stack">
             <property name="hexpand">true</property>
             <property name="vexpand">true</property>
-            <property name="transition-type">slide-left-right</property>
           </object>
         </child>
       </object>

@@ -32,6 +32,7 @@ public sealed class GalleryView
     private readonly Label _pageLabel;
     private readonly Picture _fullPicture;
     private readonly Label _fullLabel;
+    private readonly ZoomPanController _viewerZoom;
 
     private readonly List<ThumbnailEntry> _thumbnails = new();
     private readonly Dictionary<FlowBoxChild, string> _pathsByChild = new();
@@ -88,6 +89,7 @@ public sealed class GalleryView
         _pageLabel = pageLabel ?? throw new ArgumentNullException(nameof(pageLabel));
         _fullPicture = fullPicture ?? throw new ArgumentNullException(nameof(fullPicture));
         _fullLabel = fullLabel ?? throw new ArgumentNullException(nameof(fullLabel));
+        _viewerZoom = new ZoomPanController(_fullPicture);
 
         _flowBox.OnChildActivated += OnThumbnailActivated;
 
@@ -191,6 +193,7 @@ public sealed class GalleryView
         {
             SetFullTexture(texture);
             _fullLabel.SetText(Path.GetFileName(path));
+            _viewerZoom.Reset();
         }
         else
         {
@@ -207,6 +210,7 @@ public sealed class GalleryView
 
     private void ShowGrid()
     {
+        _viewerZoom.Reset();
         SetChromeVisible(true);
         if (_thumbnails.Count == 0)
         {
@@ -220,6 +224,7 @@ public sealed class GalleryView
 
     private void ShowEmpty()
     {
+        _viewerZoom.Reset();
         SetChromeVisible(true);
         SetFullTexture(null);
         _stack.SetVisibleChild(_emptyPage);
