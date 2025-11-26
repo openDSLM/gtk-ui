@@ -443,6 +443,72 @@ public sealed class CameraController : IDisposable
             _statusPollId = 0;
         }
 
+        DisposePreviewPipeline();
+
+        try
+        {
+            string socketPath = _previewSocketPath ?? "/tmp/opendslm-preview.sock";
+
+            var pipeline = Pipeline.New("daemon-preview");
+            _src = ElementFactory.Make("shmsrc", "daemon-src") ?? throw new Exception("Failed to create shmsrc");
+            SetPropString(_src, "socket-path", socketPath);
+            SetPropBool(_src, "is-live", true);
+            SetPropBool(_src, "do-timestamp", true);
+
+            var queue = ElementFactory.Make("queue", "daemon-queue") ?? throw new Exception("Failed to create queue");
+            SetPropInt(queue, "max-size-buffers", 2);
+            SetPropInt(queue, "leaky", 2);
+
+            var convert = ElementFactory.Make("videoconvert", "daemon-convert") ?? throw new Exception("Failed to create videoconvert");
+
+            _sink = ElementFactory.Make("gtk4paintablesink", "daemon-sink") ?? throw new Exception("gtk4paintablesink not available");
+            SetPropBool(_sink, "sync", false);
+
+            pipeline.Add(_src);
+            pipeline.Add(queue);
+            pipeline.Add(convert);
+            pipeline.Add(_sink);
+
+            if (!_src.Link(queue)) throw new Exception("Link src->queue failed");
+            string capsString = _previewCaps ?? "video/x-raw,format=RGBA,width=1920,height=1080,framerate=24000/1000";
+            using (var caps = Caps.FromString(capsString))
+            {
+                if (!queue.LinkFiltered(convert, caps)) throw new Exception("Link queue->convert (caps) failed");
+            }
+
+            if (!convert.Link(_sink)) throw new Exception("Link convert->sink failed");
+
+            _pipeline = pipeline;
+
+            UpdateZoomInfrastructureFlag(false);
+            RebindPaintable();
+
+            var stateChange = _pipeline.SetState(State.Playing);
+            if (stateChange == StateChangeReturn.Failure)
+            {
+                throw new Exception("Preview pipeline failed to start");
+            }
+
+            GLibFunctions.IdleAdd(0, () =>
+            {
+                RebindPaintable();
+                return false;
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to rebuild preview: {ex.Message}");
+            DisposePreviewPipeline();
+            SchedulePreviewRebuildDelayed(1000);
+        }
+        finally
+        {
+            EnsureStatusPolling();
+        }
+    }
+
+    private void DisposePreviewPipeline()
+    {
         try
         {
             _pipeline?.SetState(State.Null);
@@ -451,59 +517,17 @@ public sealed class CameraController : IDisposable
         {
         }
 
-        _pipeline?.Dispose();
+        try
+        {
+            _pipeline?.Dispose();
+        }
+        catch
+        {
+        }
+
         _pipeline = null;
         _src = null;
         _sink = null;
-
-        string socketPath = _previewSocketPath ?? "/tmp/opendslm-preview.sock";
-
-        var pipeline = Pipeline.New("daemon-preview");
-        _src = ElementFactory.Make("shmsrc", "daemon-src") ?? throw new Exception("Failed to create shmsrc");
-        SetPropString(_src, "socket-path", socketPath);
-        SetPropBool(_src, "is-live", true);
-        SetPropBool(_src, "do-timestamp", true);
-
-        var queue = ElementFactory.Make("queue", "daemon-queue") ?? throw new Exception("Failed to create queue");
-        SetPropInt(queue, "max-size-buffers", 2);
-        SetPropInt(queue, "leaky", 2);
-
-        var convert = ElementFactory.Make("videoconvert", "daemon-convert") ?? throw new Exception("Failed to create videoconvert");
-
-        _sink = ElementFactory.Make("gtk4paintablesink", "daemon-sink") ?? throw new Exception("gtk4paintablesink not available");
-        SetPropBool(_sink, "sync", false);
-
-        pipeline.Add(_src);
-        pipeline.Add(queue);
-        pipeline.Add(convert);
-        pipeline.Add(_sink);
-
-        if (!_src.Link(queue)) throw new Exception("Link src->queue failed");
-        string capsString = _previewCaps ?? "video/x-raw,format=RGBA,width=1920,height=1080,framerate=24000/1000";
-        using (var caps = Caps.FromString(capsString))
-        {
-            if (!queue.LinkFiltered(convert, caps)) throw new Exception("Link queue->convert (caps) failed");
-        }
-
-        if (!convert.Link(_sink)) throw new Exception("Link convert->sink failed");
-
-        _pipeline = pipeline;
-
-        UpdateZoomInfrastructureFlag(false);
-        RebindPaintable();
-
-        if (_pipeline.SetState(State.Playing) == StateChangeReturn.Failure)
-        {
-            throw new Exception("Preview pipeline failed to start");
-        }
-
-        GLibFunctions.IdleAdd(0, () =>
-        {
-            RebindPaintable();
-            return false;
-        });
-
-        EnsureStatusPolling();
     }
 
     private async Task CaptureStillViaDaemonAsync()
