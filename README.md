@@ -2,6 +2,13 @@
 
 GTK4/Adwaita interface for the openDSLM capture stack. It drives the on-device camera daemon, previews the live feed, and provides quick access to capture controls, gallery browsing, and settings.
 
+## Alpha readiness
+
+- Confirmed on Raspberry Pi 5 with the IMX585 (Will Whang’s driver and libcamera fork) and the current `opendslm-deamon` release.
+- Expected to work on Raspberry Pi 4 and other CSI sensors that have functioning libcamera drivers, but these paths are currently **untested**.
+- Packaging is not provided yet (run from source), and there is no automated test/CI coverage. Treat this as a hands-on alpha.
+- UX and error handling are stable enough for field trials; please report regressions before broader rollout.
+
 ## Prerequisites
 
 - .NET 8 SDK
@@ -24,6 +31,14 @@ dotnet run -- --fullscreen
 ```
 
 The UI copies its GTK templates and icon assets at build time, so no additional steps are required after publishing.
+
+## Quickstart (RPi 5 + IMX585)
+
+1. Install Raspberry Pi OS (64-bit), enable the camera, and install the IMX585 driver plus Will Whang’s libcamera build.
+2. Build and run the released [`opendslm-deamon`](https://github.com/openDSLM/opendslm-deamon) on the device.
+3. Install GTK 4 + libadwaita runtime libraries and the .NET 8 SDK.
+4. Clone this repo, then `dotnet restore && dotnet run -- --fullscreen` (omit `--fullscreen` if you want the window frame).
+5. If your daemon is not on `127.0.0.1:8400`, set `OPENDSLM_DAEMON_URL=http://<host>:<port>/` before launching.
 
 ## Getting Started
 
