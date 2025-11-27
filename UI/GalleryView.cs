@@ -33,6 +33,7 @@ public sealed class GalleryView
     private readonly Picture _fullPicture;
     private readonly Label _fullLabel;
     private readonly ZoomPanController _viewerZoom;
+    private readonly Widget _footer;
 
     private readonly List<ThumbnailEntry> _thumbnails = new();
     private readonly Dictionary<FlowBoxChild, string> _pathsByChild = new();
@@ -59,6 +60,7 @@ public sealed class GalleryView
         Widget root,
         Widget header,
         Widget rowsControl,
+        Widget footer,
         Button backButton,
         Stack stack,
         Widget emptyPage,
@@ -76,6 +78,7 @@ public sealed class GalleryView
         Root = root ?? throw new ArgumentNullException(nameof(root));
         _header = header ?? throw new ArgumentNullException(nameof(header));
         _rowsControl = rowsControl ?? throw new ArgumentNullException(nameof(rowsControl));
+        _footer = footer ?? throw new ArgumentNullException(nameof(footer));
         BackButton = backButton ?? throw new ArgumentNullException(nameof(backButton));
         _stack = stack ?? throw new ArgumentNullException(nameof(stack));
         _emptyPage = emptyPage ?? throw new ArgumentNullException(nameof(emptyPage));
@@ -239,6 +242,10 @@ public sealed class GalleryView
         if (_rowsControl is not null)
         {
             _rowsControl.Visible = visible;
+        }
+        if (_footer is not null)
+        {
+            _footer.Visible = visible;
         }
     }
 

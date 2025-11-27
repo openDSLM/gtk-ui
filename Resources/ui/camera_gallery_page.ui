@@ -137,7 +137,7 @@
                     <property name="css-classes">gallery-full-picture</property>
                     <property name="hexpand">true</property>
                     <property name="vexpand">true</property>
-                    <property name="content-fit">cover</property>
+                    <property name="content-fit">contain</property>
                   </object>
                 </child>
                 <child type="overlay">
@@ -157,7 +157,7 @@
                     </child>
                     <child>
                       <object class="GtkButton" id="gallery_viewer_back_button">
-                        <property name="css-classes">back-button gallery-viewer-back-button</property>
+                        <property name="css-classes">gallery-viewer-back-button</property>
                         <property name="label">Back to Grid</property>
                       </object>
                     </child>

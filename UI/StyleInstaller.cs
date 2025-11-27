@@ -249,12 +249,26 @@ overlay label.hud-readout {
 }
 
 .gallery-viewer-back-button {
-  background-color: rgba(12,12,12,0.75);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 6px;
-  color: #fff;
-  padding: 6px 12px;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.45);
+  background-image: none;
+  background-color: #ffffff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 8px;
+  color: #161616;
+  padding: 6px 14px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  box-shadow: 0 14px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.75);
+}
+
+.gallery-viewer-back-button:hover {
+  background-color: #f6f6f6;
+  border-color: rgba(0,0,0,0.12);
+  color: #0c0c0c;
+}
+
+.gallery-viewer-back-button:active {
+  background-color: #ededed;
+  border-color: rgba(0,0,0,0.18);
 }
 
 .gallery-full-info {
