@@ -151,6 +151,7 @@ public sealed class MainWindowBuilder
         var galleryPrevButton = Require<Button>(galleryBuilder, "gallery_prev_button");
         var galleryNextButton = Require<Button>(galleryBuilder, "gallery_next_button");
         var galleryPageLabel = Require<Label>(galleryBuilder, "gallery_page_label");
+        var galleryFooter = Require<Box>(galleryBuilder, "gallery_footer");
         var galleryFullPicture = Require<Picture>(galleryBuilder, "gallery_full_picture");
         var galleryFullLabel = Require<Label>(galleryBuilder, "gallery_full_label");
 
@@ -158,6 +159,7 @@ public sealed class MainWindowBuilder
             galleryRoot,
             galleryHeader,
             galleryRowsControl,
+            galleryFooter,
             galleryBackButton,
             galleryStack,
             galleryEmptyBox,
