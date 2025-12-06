@@ -38,9 +38,9 @@
       <object class="GtkBox" id="side_button_column">
         <property name="orientation">vertical</property>
         <property name="spacing">8</property>
-        <property name="halign">end</property>
+        <property name="halign">start</property>
         <property name="valign">center</property>
-        <property name="margin-end">16</property>
+        <property name="margin-start">16</property>
         <property name="css-classes">side-button-column</property>
         <child>
           <object class="GtkButton" id="settings_button">
