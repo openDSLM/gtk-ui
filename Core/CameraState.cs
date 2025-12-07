@@ -23,6 +23,10 @@ public sealed class CameraState
     private CaptureMode _captureMode = CaptureMode.Photo;
     private double _videoFps = 24.0;
     private double _videoShutterAngle = 180.0;
+    private int _videoBitrate = 35_000_000;
+    private string _videoCodec = "h264_v4l2m2m";
+    private bool _videoInlineHeaders = true;
+    private bool _videoAudioEnabled = true;
     private bool _videoRecording;
     private string? _activeVideoSequencePath;
     private double _videoActualFps;
@@ -45,6 +49,10 @@ public sealed class CameraState
         _captureMode = _preferences.CaptureMode;
         _videoFps = _preferences.VideoFps;
         _videoShutterAngle = _preferences.VideoShutterAngle;
+        _videoBitrate = _preferences.VideoBitrate;
+        _videoCodec = _preferences.VideoCodec;
+        _videoInlineHeaders = _preferences.VideoInlineHeaders;
+        _videoAudioEnabled = _preferences.VideoAudioEnabled;
         _timelapseIntervalSeconds = _preferences.TimelapseIntervalSeconds;
         _timelapseFrameCount = _preferences.TimelapseFrameCount;
         _outputDirectory = _preferences.OutputDirectory;
@@ -441,6 +449,56 @@ public sealed class CameraState
             if (Math.Abs(_videoShutterAngle - clamped) < 0.0001) return;
             _videoShutterAngle = clamped;
             _preferences.VideoShutterAngle = clamped;
+            VideoSettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public int VideoBitrate
+    {
+        get => _videoBitrate;
+        set
+        {
+            int clamped = Math.Clamp(value, 5_000_000, 200_000_000);
+            if (_videoBitrate == clamped) return;
+            _videoBitrate = clamped;
+            _preferences.VideoBitrate = clamped;
+            VideoSettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public string VideoCodec
+    {
+        get => _videoCodec;
+        set
+        {
+            value ??= string.Empty;
+            if (string.Equals(_videoCodec, value, StringComparison.Ordinal)) return;
+            _videoCodec = value;
+            _preferences.VideoCodec = value;
+            VideoSettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public bool VideoInlineHeaders
+    {
+        get => _videoInlineHeaders;
+        set
+        {
+            if (_videoInlineHeaders == value) return;
+            _videoInlineHeaders = value;
+            _preferences.VideoInlineHeaders = value;
+            VideoSettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public bool VideoAudioEnabled
+    {
+        get => _videoAudioEnabled;
+        set
+        {
+            if (_videoAudioEnabled == value) return;
+            _videoAudioEnabled = value;
+            _preferences.VideoAudioEnabled = value;
             VideoSettingsChanged?.Invoke(this, EventArgs.Empty);
         }
     }

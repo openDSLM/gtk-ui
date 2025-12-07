@@ -21,5 +21,10 @@ public sealed record CameraSettingsView(
     Entry MetadataSoftwareEntry,
     Entry MetadataArtistEntry,
     Entry MetadataCopyrightEntry,
-    Button MetadataApplyButton
+    Button MetadataApplyButton,
+    SpinButton VideoFpsSpin,
+    SpinButton VideoBitrateSpin,
+    ComboBoxText VideoCodecCombo,
+    CheckButton VideoInlineToggle,
+    CheckButton VideoAudioToggle
 );

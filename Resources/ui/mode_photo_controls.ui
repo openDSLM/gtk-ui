@@ -67,5 +67,10 @@
         <property name="css-classes">control-button capture-button</property>
       </object>
     </child>
+    <child>
+      <object class="GtkButton" id="record_button">
+        <property name="css-classes">control-button record-button</property>
+      </object>
+    </child>
   </object>
 </interface>

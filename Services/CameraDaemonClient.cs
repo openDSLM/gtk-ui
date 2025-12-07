@@ -96,6 +96,22 @@ public sealed class CameraDaemonClient : IDisposable
         return JsonSerializer.Deserialize<DaemonStatus>(json, SerializerOptions);
     }
 
+    public async Task<DaemonStatus?> StartMp4RecordingAsync(Mp4RecordingRequest request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync("recordings/mp4/start", CreateJsonContent(request), cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<DaemonStatus>(json, SerializerOptions);
+    }
+
+    public async Task<DaemonStatus?> StopMp4RecordingAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync("recordings/mp4/stop", CreateJsonContent(new { }), cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<DaemonStatus>(json, SerializerOptions);
+    }
+
     public void Dispose()
     {
         _httpClient.Dispose();
@@ -123,6 +139,9 @@ public sealed class DaemonStatus
 
     [JsonPropertyName("last_capture")]
     public DaemonCaptureResult? LastCapture { get; init; }
+
+    [JsonPropertyName("recording")]
+    public DaemonRecordingStatus? Recording { get; init; }
 }
 
 public sealed class DaemonSessionState
@@ -240,6 +259,75 @@ public sealed class DaemonMetadataEffective
 
     [JsonPropertyName("copyright")]
     public string? Copyright { get; init; }
+}
+
+public sealed class DaemonRecordingStatus
+{
+    [JsonPropertyName("active")]
+    public bool Active { get; init; }
+
+    [JsonPropertyName("filename")]
+    public string? Filename { get; init; }
+
+    [JsonPropertyName("last_error")]
+    public string? LastError { get; init; }
+
+    [JsonPropertyName("elapsed_ms")]
+    public long? ElapsedMs { get; init; }
+
+    [JsonPropertyName("config")]
+    public DaemonRecordingConfig? Config { get; init; }
+
+    [JsonPropertyName("audio")]
+    public DaemonRecordingAudio? Audio { get; init; }
+}
+
+public sealed class DaemonRecordingConfig
+{
+    [JsonPropertyName("width")]
+    public int? Width { get; init; }
+
+    [JsonPropertyName("height")]
+    public int? Height { get; init; }
+
+    [JsonPropertyName("fps")]
+    public double? Fps { get; init; }
+
+    [JsonPropertyName("bitrate")]
+    public int? Bitrate { get; init; }
+
+    [JsonPropertyName("codec")]
+    public string? Codec { get; init; }
+}
+
+public sealed class DaemonRecordingAudio
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; init; }
+
+    [JsonPropertyName("codec")]
+    public string? Codec { get; init; }
+}
+
+public sealed class Mp4RecordingRequest
+{
+    [JsonPropertyName("filename")]
+    public string Filename { get; init; } = string.Empty;
+
+    [JsonPropertyName("fps")]
+    public double? Fps { get; init; }
+
+    [JsonPropertyName("bitrate")]
+    public int? Bitrate { get; init; }
+
+    [JsonPropertyName("codec")]
+    public string? Codec { get; init; }
+
+    [JsonPropertyName("inline")]
+    public bool? InlineHeaders { get; init; }
+
+    [JsonPropertyName("audio")]
+    public bool? Audio { get; init; }
 }
 
 public sealed record DaemonMetadataPatch

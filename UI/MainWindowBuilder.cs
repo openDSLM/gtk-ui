@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Adw;
 using Gtk;
+using GLib;
 
 /// <summary>
 /// Responsible for loading GTK templates and binding UI controls to the camera state.
@@ -63,12 +64,13 @@ public sealed class MainWindowBuilder
         var isoBox = Require<ComboBoxText>(photoBuilder, "iso_combo");
         var shutterBox = Require<ComboBoxText>(photoBuilder, "shutter_combo");
         var captureButton = Require<Button>(photoBuilder, "capture_button");
+        var recordButton = Require<Button>(photoBuilder, "record_button");
 
         modeStack.AddNamed(photoRoot, "photo");
         modeStack.SetVisibleChild(photoRoot);
 
-        var photoView = new PhotoControlsView(photoRoot, autoToggle, isoBox, shutterBox, captureButton);
-        ApplyButtonIcons(settingsButton, galleryButton, captureButton);
+        var photoView = new PhotoControlsView(photoRoot, autoToggle, isoBox, shutterBox, captureButton, recordButton);
+        ApplyButtonIcons(settingsButton, galleryButton, captureButton, recordButton);
 
         using var settingsBuilder = Builder.NewFromFile(ResolveLayoutPath(SettingsLayoutFileName));
         var settingsRoot = Require<Box>(settingsBuilder, "settings_root");
@@ -89,6 +91,11 @@ public sealed class MainWindowBuilder
         var metadataArtistEntry = Require<Entry>(settingsBuilder, "metadata_artist_entry");
         var metadataCopyrightEntry = Require<Entry>(settingsBuilder, "metadata_copyright_entry");
         var metadataApplyButton = Require<Button>(settingsBuilder, "metadata_apply_button");
+        var videoFpsSpin = Require<SpinButton>(settingsBuilder, "video_fps_spin");
+        var videoBitrateSpin = Require<SpinButton>(settingsBuilder, "video_bitrate_spin");
+        var videoCodecCombo = Require<ComboBoxText>(settingsBuilder, "video_codec_combo");
+        var videoInlineToggle = Require<CheckButton>(settingsBuilder, "video_inline_toggle");
+        var videoAudioToggle = Require<CheckButton>(settingsBuilder, "video_audio_toggle");
 
         var metadataMakeLabel = Require<Label>(settingsBuilder, "metadata_make_label");
         var metadataModelLabel = Require<Label>(settingsBuilder, "metadata_model_label");
@@ -131,7 +138,12 @@ public sealed class MainWindowBuilder
             metadataSoftwareEntry,
             metadataArtistEntry,
             metadataCopyrightEntry,
-            metadataApplyButton);
+            metadataApplyButton,
+            videoFpsSpin,
+            videoBitrateSpin,
+            videoCodecCombo,
+            videoInlineToggle,
+            videoAudioToggle);
 
         using var galleryBuilder = Builder.NewFromFile(ResolveLayoutPath(GalleryLayoutFileName));
         var galleryRoot = Require<Box>(galleryBuilder, "gallery_root");
@@ -178,11 +190,13 @@ public sealed class MainWindowBuilder
         ConfigureIsoCombo(photoView.IsoBox);
         ConfigureShutterCombo(photoView.ShutterBox);
         ConfigureCaptureButton(photoView.CaptureButton);
+        ConfigureRecordButton(photoView.RecordButton);
         ConfigureResolutionCombo(settingsView.ResolutionCombo);
         ConfigureSettingsPanel(settingsView);
         ConfigureGallerySettings(settingsView);
         ConfigureGalleryRowsControl(galleryRowsValueLabel, galleryRowsDecreaseButton, galleryRowsIncreaseButton, rows => galleryView.SetGridRows(rows));
         ConfigureMetadataSettings(settingsView);
+        ConfigureVideoSettings(settingsView);
         ConfigureInfoPage(settingsView);
         ConfigureDebugSettings(settingsView, app);
         ConfigureNavigation(stack, liveOverlay, settingsView.Root, galleryView.Root, settingsButton, settingsView.CloseButton, galleryButton, galleryView);
@@ -206,11 +220,12 @@ public sealed class MainWindowBuilder
             galleryView);
     }
 
-    private void ApplyButtonIcons(Button settingsButton, Button galleryButton, Button captureButton)
+    private void ApplyButtonIcons(Button settingsButton, Button galleryButton, Button captureButton, Button recordButton)
     {
         SetButtonIcon(settingsButton, "settings-symbolic.svg");
         SetButtonIcon(galleryButton, "gallery-symbolic.svg");
         SetCaptureButtonIcon(captureButton, "capture-symbolic.svg");
+        SetRecordButtonContent(recordButton, isRecording: false);
     }
 
     private static void SetButtonIcon(Button button, string iconFile)
@@ -251,6 +266,21 @@ public sealed class MainWindowBuilder
         box.Append(label);
 
         button.SetChild(box);
+    }
+
+    private static void SetRecordButtonContent(Button button, bool isRecording)
+    {
+        var label = Gtk.Label.New(isRecording ? "STOP" : "REC");
+        label.AddCssClass("capture-label");
+        button.SetChild(label);
+        if (isRecording)
+        {
+            button.AddCssClass("recording-active");
+        }
+        else
+        {
+            button.RemoveCssClass("recording-active");
+        }
     }
 
     private static string? ResolveIconPath(string fileName)
@@ -411,6 +441,42 @@ public sealed class MainWindowBuilder
         };
     }
 
+    private void ConfigureRecordButton(Button recordButton)
+    {
+        void UpdateUi(bool isRecording) => SetRecordButtonContent(recordButton, isRecording);
+
+        UpdateUi(_state.IsVideoRecording);
+
+        recordButton.OnClicked += async (_, __) =>
+        {
+            recordButton.Sensitive = false;
+            try
+            {
+                if (_state.IsVideoRecording)
+                {
+                    await _dispatcher.DispatchAsync(AppActionId.StopVideoRecording);
+                }
+                else
+                {
+                    await _dispatcher.DispatchAsync(AppActionId.StartVideoRecording);
+                }
+            }
+            finally
+            {
+                recordButton.Sensitive = true;
+            }
+        };
+
+        _state.VideoRecordingChanged += (_, active) =>
+        {
+            GLib.Functions.IdleAdd(0, () =>
+            {
+                UpdateUi(active);
+                return false;
+            });
+        };
+    }
+
     private void ConfigureSettingsPanel(CameraSettingsView settingsView)
     {
         SetEntryText(settingsView.OutputDirectoryEntry, _state.OutputDirectory);
@@ -546,6 +612,64 @@ public sealed class MainWindowBuilder
                 settingsView.MetadataApplyButton.Sensitive = true;
             }
         };
+    }
+
+    private void ConfigureVideoSettings(CameraSettingsView settingsView)
+    {
+        var fpsSpin = settingsView.VideoFpsSpin;
+        var bitrateSpin = settingsView.VideoBitrateSpin;
+        var codecCombo = settingsView.VideoCodecCombo;
+        var inlineToggle = settingsView.VideoInlineToggle;
+        var audioToggle = settingsView.VideoAudioToggle;
+
+        codecCombo.RemoveAll();
+        string[] codecs = { "h264_v4l2m2m", "hevc_v4l2m2m", "libx264", "libx265" };
+        foreach (var c in codecs)
+        {
+            codecCombo.AppendText(c);
+        }
+
+        bool updating = false;
+
+        void SyncUi()
+        {
+            updating = true;
+            fpsSpin.Value = _state.VideoFps;
+            bitrateSpin.Value = _state.VideoBitrate;
+            int codecIndex = System.Array.IndexOf(codecs, _state.VideoCodec);
+            codecCombo.Active = codecIndex >= 0 ? codecIndex : 0;
+            inlineToggle.Active = _state.VideoInlineHeaders;
+            audioToggle.Active = _state.VideoAudioEnabled;
+            updating = false;
+        }
+
+        async System.Threading.Tasks.Task CommitAsync()
+        {
+            if (updating) return;
+            string codec = codecCombo.GetActiveText() ?? codecs[0];
+            await _dispatcher.DispatchAsync(AppActionId.UpdateVideoSettings,
+                new UpdateVideoSettingsPayload(
+                    fpsSpin.Value,
+                    _state.VideoShutterAngle,
+                    (int)Math.Round(bitrateSpin.Value),
+                    codec,
+                    inlineToggle.Active,
+                    audioToggle.Active));
+        }
+
+        fpsSpin.OnValueChanged += async (_, __) => await CommitAsync();
+        bitrateSpin.OnValueChanged += async (_, __) => await CommitAsync();
+        codecCombo.OnChanged += async (_, __) => await CommitAsync();
+        inlineToggle.OnToggled += async (_, __) => await CommitAsync();
+        audioToggle.OnToggled += async (_, __) => await CommitAsync();
+
+        _state.VideoSettingsChanged += (_, __) => GLib.Functions.IdleAdd(0, () =>
+        {
+            SyncUi();
+            return false;
+        });
+
+        SyncUi();
     }
 
     private void ConfigureInfoPage(CameraSettingsView settingsView)

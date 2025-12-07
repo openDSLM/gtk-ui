@@ -9,7 +9,8 @@ public sealed record PhotoControlsView(
     CheckButton AutoToggle,
     ComboBoxText IsoBox,
     ComboBoxText ShutterBox,
-    Button CaptureButton);
+    Button CaptureButton,
+    Button RecordButton);
 
 /// <summary>
 /// Represents the root GTK widgets that make up the camera UI.

@@ -78,6 +78,52 @@ public sealed class UserPreferences
         }
     }
 
+    public int VideoBitrate
+    {
+        get => _model.VideoBitrate;
+        set
+        {
+            int clamped = Math.Clamp(value, 5_000_000, 200_000_000);
+            if (_model.VideoBitrate == clamped) return;
+            _model.VideoBitrate = clamped;
+            SavePreferences();
+        }
+    }
+
+    public string VideoCodec
+    {
+        get => string.IsNullOrWhiteSpace(_model.VideoCodec) ? "h264_v4l2m2m" : _model.VideoCodec;
+        set
+        {
+            value ??= string.Empty;
+            if (string.Equals(_model.VideoCodec, value, StringComparison.Ordinal)) return;
+            _model.VideoCodec = value;
+            SavePreferences();
+        }
+    }
+
+    public bool VideoInlineHeaders
+    {
+        get => _model.VideoInlineHeaders;
+        set
+        {
+            if (_model.VideoInlineHeaders == value) return;
+            _model.VideoInlineHeaders = value;
+            SavePreferences();
+        }
+    }
+
+    public bool VideoAudioEnabled
+    {
+        get => _model.VideoAudioEnabled;
+        set
+        {
+            if (_model.VideoAudioEnabled == value) return;
+            _model.VideoAudioEnabled = value;
+            SavePreferences();
+        }
+    }
+
     public double TimelapseIntervalSeconds
     {
         get => _model.TimelapseIntervalSeconds;
@@ -224,6 +270,15 @@ public sealed class UserPreferences
         {
             model.VideoShutterAngle = 180.0;
         }
+        if (model.VideoBitrate < 5_000_000 || model.VideoBitrate > 200_000_000)
+        {
+            model.VideoBitrate = 35_000_000;
+        }
+        model.VideoCodec ??= "h264_v4l2m2m";
+        if (string.IsNullOrWhiteSpace(model.VideoCodec))
+        {
+            model.VideoCodec = "h264_v4l2m2m";
+        }
         if (model.TimelapseIntervalSeconds < 0.5 || model.TimelapseIntervalSeconds > 3600.0)
         {
             model.TimelapseIntervalSeconds = 5.0;
@@ -243,6 +298,10 @@ public sealed class UserPreferences
         public CaptureMode CaptureMode { get; set; } = CaptureMode.Photo;
         public double VideoFps { get; set; } = 24.0;
         public double VideoShutterAngle { get; set; } = 180.0;
+        public int VideoBitrate { get; set; } = 35_000_000;
+        public string VideoCodec { get; set; } = "h264_v4l2m2m";
+        public bool VideoInlineHeaders { get; set; } = true;
+        public bool VideoAudioEnabled { get; set; } = true;
         public double TimelapseIntervalSeconds { get; set; } = 5.0;
         public int TimelapseFrameCount { get; set; } = 120;
         public string OutputDirectory { get; set; } = "/ssd/RAW";

@@ -213,6 +213,10 @@ public sealed class CameraController : IDisposable
         {
             _state.VideoFps = payload.Fps;
             _state.VideoShutterAngle = payload.ShutterAngleDegrees;
+            _state.VideoBitrate = payload.Bitrate;
+            _state.VideoCodec = payload.Codec;
+            _state.VideoInlineHeaders = payload.InlineHeaders;
+            _state.VideoAudioEnabled = payload.AudioEnabled;
             return Task.CompletedTask;
         });
 
@@ -422,6 +426,7 @@ public sealed class CameraController : IDisposable
                 ProcessLastCapture(status.LastCapture);
             }
 
+            SyncRecordingState(status.Recording);
             UpdateHudFromCachedSettings();
         }
         catch (Exception ex)
@@ -1055,20 +1060,45 @@ public sealed class CameraController : IDisposable
             return;
         }
 
-        string sequencePath = CreateSequenceDirectory("clip");
-        string folderName = Path.GetFileName(sequencePath);
-        if (string.IsNullOrEmpty(folderName))
-        {
-            folderName = sequencePath;
-        }
+        string baseDir = string.IsNullOrWhiteSpace(_state.OutputDirectory)
+            ? Environment.CurrentDirectory
+            : _state.OutputDirectory;
+        Directory.CreateDirectory(baseDir);
+        string filename = Path.Combine(baseDir, $"{System.DateTime.UtcNow:yyyyMMdd_HHmmss}_clip.mp4");
 
         try
         {
-            await _daemonClient.StartVideoRecordingAsync(folderName).ConfigureAwait(false);
+            using var cts = new CancellationTokenSource(System.TimeSpan.FromSeconds(20));
+            var request = new Mp4RecordingRequest
+            {
+                Filename = filename,
+                Fps = _state.VideoFps,
+                Bitrate = _state.VideoBitrate,
+                Codec = _state.VideoCodec,
+                InlineHeaders = _state.VideoInlineHeaders,
+                Audio = _state.VideoAudioEnabled
+            };
+            await _daemonClient.StartMp4RecordingAsync(request, cts.Token).ConfigureAwait(false);
+
+            // Confirm daemon reports recording active before mutating state.
+            var status = await _daemonClient.GetStatusAsync(cts.Token).ConfigureAwait(false);
+            if (status?.Recording?.Active != true)
+            {
+                Console.WriteLine("[Video] Daemon did not report an active MP4 recording; aborting UI transition");
+                SchedulePreviewRebuildDelayed(200);
+                return;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("[Video] MP4 start timed out; retrying preview");
+            SchedulePreviewRebuildDelayed(200);
+            return;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[Video] Failed to start recording: {ex.Message}");
+            SchedulePreviewRebuildDelayed(200);
             return;
         }
 
@@ -1077,8 +1107,9 @@ public sealed class CameraController : IDisposable
         _lastCaptureToken = null;
         _lastCaptureSignature = null;
         _lastCaptureProcessedCount = 0;
-        _state.BeginVideoRecording(sequencePath);
-        Console.WriteLine($"[Video] Recording started at {sequencePath}");
+        _state.BeginVideoRecording(filename);
+        Console.WriteLine($"[Video] Recording started at {filename}");
+        SchedulePreviewRebuildDelayed(200);
     }
 
     private async Task StopVideoRecordingAsync()
@@ -1090,7 +1121,20 @@ public sealed class CameraController : IDisposable
 
         try
         {
-            await _daemonClient.StopVideoRecordingAsync().ConfigureAwait(false);
+            using var cts = new CancellationTokenSource(System.TimeSpan.FromSeconds(10));
+            await _daemonClient.StopMp4RecordingAsync(cts.Token).ConfigureAwait(false);
+
+            var status = await _daemonClient.GetStatusAsync(cts.Token).ConfigureAwait(false);
+            if (status?.Recording?.Active == true)
+            {
+                Console.WriteLine("[Video] Daemon still reports recording active after stop request");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("[Video] MP4 stop timed out; forcing preview rebuild");
+            SchedulePreviewRebuildDelayed(200);
+            return;
         }
         catch (Exception ex)
         {
@@ -1102,6 +1146,20 @@ public sealed class CameraController : IDisposable
         _videoRecordingStartUtc = default;
         _videoCapturedFramesTotal = 0;
         _lastCaptureToken = null;
+        SchedulePreviewRebuildDelayed(200);
+    }
+
+    private void SyncRecordingState(DaemonRecordingStatus? recording)
+    {
+        bool active = recording?.Active ?? false;
+        if (active && !_state.IsVideoRecording)
+        {
+            _state.BeginVideoRecording(recording?.Filename ?? string.Empty);
+        }
+        else if (!active && _state.IsVideoRecording)
+        {
+            _state.EndVideoRecording();
+        }
     }
 
     private async Task StartTimelapseAsync()

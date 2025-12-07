@@ -175,6 +175,98 @@
               </object>
             </child>
             <child>
+              <object class="GtkStackPage" id="settings_video_page">
+                <property name="name">video</property>
+                <property name="title">Video</property>
+                <property name="child">
+                  <object class="GtkScrolledWindow">
+                    <property name="hexpand">true</property>
+                    <property name="vexpand">true</property>
+                    <property name="hscrollbar-policy">never</property>
+                    <child>
+                      <object class="AdwClamp" id="video_settings_clamp">
+                        <property name="maximum-size">1400</property>
+                        <child>
+                          <object class="AdwPreferencesPage" id="video_settings_page">
+                            <child>
+                              <object class="AdwPreferencesGroup" id="video_encoder_group">
+                                <property name="title">Encoder</property>
+                                <child>
+                                  <object class="AdwActionRow" id="video_fps_row">
+                                    <property name="title">Frame rate</property>
+                                    <property name="subtitle">Frames per second</property>
+                                    <child type="suffix">
+                                      <object class="GtkSpinButton" id="video_fps_spin">
+                                        <property name="adjustment">
+                                          <object class="GtkAdjustment">
+                                            <property name="lower">1</property>
+                                            <property name="upper">240</property>
+                                            <property name="step-increment">1</property>
+                                            <property name="page-increment">5</property>
+                                            <property name="value">24</property>
+                                          </object>
+                                        </property>
+                                        <property name="digits">0</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow" id="video_bitrate_row">
+                                    <property name="title">Bitrate</property>
+                                    <property name="subtitle">Target video bitrate (bps)</property>
+                                    <child type="suffix">
+                                      <object class="GtkSpinButton" id="video_bitrate_spin">
+                                        <property name="adjustment">
+                                          <object class="GtkAdjustment">
+                                            <property name="lower">5000000</property>
+                                            <property name="upper">200000000</property>
+                                            <property name="step-increment">1000000</property>
+                                            <property name="page-increment">5000000</property>
+                                            <property name="value">35000000</property>
+                                          </object>
+                                        </property>
+                                        <property name="digits">0</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow" id="video_codec_row">
+                                    <property name="title">Codec</property>
+                                    <child type="suffix">
+                                      <object class="GtkComboBoxText" id="video_codec_combo"/>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow" id="video_inline_row">
+                                    <property name="title">Inline SPS/PPS</property>
+                                    <property name="subtitle">Emit headers on every I-frame (All-Intra friendly)</property>
+                                    <child type="suffix">
+                                      <object class="GtkCheckButton" id="video_inline_toggle"/>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow" id="video_audio_row">
+                                    <property name="title">Audio</property>
+                                    <child type="suffix">
+                                      <object class="GtkCheckButton" id="video_audio_toggle"/>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
               <object class="GtkStackPage" id="settings_metadata_page">
                 <property name="name">metadata</property>
                 <property name="title">Metadata</property>
