@@ -167,6 +167,9 @@ public sealed class DaemonSettings
     [JsonPropertyName("analogue_gain")]
     public double AnalogueGain { get; init; }
 
+    [JsonPropertyName("bitrate")]
+    public int Bitrate { get; init; }
+
     [JsonPropertyName("auto_exposure")]
     public bool AutoExposure { get; init; }
 
@@ -190,6 +193,9 @@ public sealed record DaemonSettingsPatch
 
     [JsonPropertyName("analogue_gain")]
     public double? AnalogueGain { get; init; }
+
+    [JsonPropertyName("bitrate")]
+    public int? Bitrate { get; init; }
 
     [JsonPropertyName("auto_exposure")]
     public bool? AutoExposure { get; init; }

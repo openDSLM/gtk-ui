@@ -106,7 +106,6 @@ overlay label.hud-readout {
 .side-button-column {
   margin-top: 8px;
   margin-bottom: 8px;
-  row-gap: 12px;
 }
 
 .side-button {
@@ -169,14 +168,11 @@ overlay label.hud-readout {
 .gallery-page {
   background-color: shade(@window_bg_color, 1.02);
   padding: 0;
-  row-gap: 12px;
 }
 
 .gallery-header {
   padding: 20px 32px 10px 32px;
   border-bottom: 1px solid @panel_border;
-  column-gap: 12px;
-  align-items: center;
 }
 
 .gallery-rows-control {
@@ -186,8 +182,6 @@ overlay label.hud-readout {
   border: 1px solid @panel_border;
   background-color: shade(@window_bg_color, 1.06);
   color: @window_fg_color;
-  column-gap: 12px;
-  align-items: center;
 }
 
 .gallery-rows-control button {
@@ -204,7 +198,6 @@ overlay label.hud-readout {
 .gallery-rows-value {
   font-weight: 700;
   min-width: 32px;
-  text-align: center;
   color: @window_fg_color;
 }
 
@@ -220,8 +213,6 @@ overlay label.hud-readout {
   margin-top: 0;
   padding: 16px 32px 24px 32px;
   border-top: 1px solid @panel_border;
-  column-gap: 18px;
-  align-items: center;
 }
 
 .gallery-footer button {
@@ -324,7 +315,6 @@ flowboxchild.gallery-thumb picture.gallery-thumb-picture-missing {
   font-weight: 600;
   letter-spacing: 0.5px;
   min-width: 120px;
-  text-align: center;
 }
 ";
             css.LoadFromData(cssStr, (nint)cssStr.Length);
